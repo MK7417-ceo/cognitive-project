@@ -73,7 +73,7 @@ public class CricketMatchManager : MonoBehaviour
         var wait = new WaitForSeconds(0.3f);
         while (true)
         {
-            foreach (var thrower in FindObjectsByType<BallThrower>(FindObjectsSortMode.None))
+            foreach (var thrower in FindObjectsByType<BallThrower>(FindObjectsInactive.Exclude))
             {
                 if (thrower.GetComponent<BallHitPhysics>() == null)
                     thrower.gameObject.AddComponent<BallHitPhysics>();
