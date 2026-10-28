@@ -25,6 +25,13 @@ public class SnapSceneBatToHand : MonoBehaviour
     [Tooltip("Standard adult cricket bat length in meters (typically 0.85m / 33.5 inches)")]
     public float realBatLength = 0.85f;
 
+    [Header("Real Bat Physics (Phase 1)")]
+    [Tooltip("Give the bat a solid (non-trigger) collider from its mesh bounds, so the ball bounces off the blade with real physics instead of passing through or relying on a trigger.")]
+    public bool ensureBatCollider = true;
+
+    [Tooltip("If true, add BatVRGrab so the bat can be grabbed with a VR controller. In the editor, the scene still needs XR controller interactors (XR Origin Action-based controllers) for grabbing to work; without them the bat falls back to mouse/keyboard movement and this only logs a warning.")]
+    public bool enableVRGrab = true;
+
     void Awake()
     {
         FixBatAndAttachToHand();
@@ -124,6 +131,63 @@ public class SnapSceneBatToHand : MonoBehaviour
         if (batInstance.GetComponent<BatSwingTracker>() == null)
         {
             batInstance.AddComponent<BatSwingTracker>();
+        }
+
+        // 6. Phase 1: solid blade collider + kinematic rigidbody + VR grab.
+        // Without this the ball has nothing solid to collide with: it either
+        // passes through the bat or only fires a trigger with a faked shot.
+        if (ensureBatCollider)
+        {
+            EnsureSolidBatCollider();
+        }
+
+        if (enableVRGrab && batInstance.GetComponent<BatVRGrab>() == null)
+        {
+            batInstance.AddComponent<BatVRGrab>();
+            Debug.Log("SnapSceneBatToHand: BatVRGrab added. Grabbing also needs XR controller interactors in the scene (see BatVRGrab notes); without them the bat keeps working with mouse/keyboard.");
+        }
+    }
+
+    void EnsureSolidBatCollider()
+    {
+        // Rigidbody on the root: child colliders then form one compound body.
+        var rb = batInstance.GetComponent<Rigidbody>();
+        if (rb == null)
+        {
+            rb = batInstance.AddComponent<Rigidbody>();
+        }
+        rb.isKinematic = true;
+        rb.useGravity = false;
+        rb.detectCollisions = true;
+        rb.interpolation = RigidbodyInterpolation.Interpolate;
+        rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+
+        // Solid collider on the mesh child, sized from the mesh itself, so it
+        // always matches the visible blade whatever the FBX import scale was.
+        var mf = batInstance.GetComponentInChildren<MeshFilter>();
+        if (mf != null && mf.sharedMesh != null)
+        {
+            var go = mf.gameObject;
+            var box = go.GetComponent<BoxCollider>();
+            if (box == null)
+            {
+                // Remove a trigger mesh collider first, if the FBX brought one:
+                // a trigger can never produce a real physics bounce.
+                var existing = go.GetComponent<Collider>();
+                if (existing != null) Destroy(existing);
+                box = go.AddComponent<BoxCollider>();
+            }
+            box.size = mf.sharedMesh.bounds.size;
+            box.center = mf.sharedMesh.bounds.center;
+            box.isTrigger = false;
+        }
+
+        // Any other trigger collider under the bat would swallow the solid
+        // contact, so force them solid too. This is intentional for Phase 1:
+        // the bat is a physical object, not a trigger zone.
+        foreach (var col in batInstance.GetComponentsInChildren<Collider>(true))
+        {
+            col.isTrigger = false;
         }
     }
 
