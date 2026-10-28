@@ -1,4 +1,7 @@
 using UnityEngine;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem;
+#endif
 
 public class BatMouseSwingPro : MonoBehaviour
 {
@@ -12,19 +15,41 @@ public class BatMouseSwingPro : MonoBehaviour
 
     void Update()
     {
-        // Mouse delta (movement)
-        float mouseX = Input.GetAxisRaw("Mouse X");
-        float mouseY = Input.GetAxisRaw("Mouse Y");
+        float mouseX = 0f;
+        float mouseY = 0f;
 
-        // Rotate angles calculate karo
+#if ENABLE_INPUT_SYSTEM
+        // Unity New Input System check
+        if (Mouse.current != null)
+        {
+            Vector2 delta = Mouse.current.delta.ReadValue();
+            mouseX = delta.x * 0.1f;
+            mouseY = delta.y * 0.1f;
+        }
+        else
+#endif
+        {
+            // Legacy Input Manager fallback
+            try
+            {
+                mouseX = Input.GetAxisRaw("Mouse X");
+                mouseY = Input.GetAxisRaw("Mouse Y");
+            }
+            catch
+            {
+                // Ignored if legacy input is completely disabled in player settings
+            }
+        }
+
+        // Calculate rotation angles
         rotX -= mouseY * swingSpeed;
         rotY += mouseX * swingSpeed;
 
-        // Limits set karo
+        // Clamp rotation angles
         rotX = Mathf.Clamp(rotX, -maxXAngle, maxXAngle);
         rotY = Mathf.Clamp(rotY, -maxYAngle, maxYAngle);
 
-        // Apply rotation
+        // Apply local rotation
         transform.localRotation = Quaternion.Euler(rotX, rotY, 0f);
     }
 }

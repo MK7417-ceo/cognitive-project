@@ -1,169 +1,200 @@
 using UnityEngine;
 
 /// <summary>
-/// Parents the scene bat under the hand's BatHolder at runtime and fixes
-/// its placement: auto-scales the bat to a real-world size and auto-aligns
-/// its longest axis with the holder, so the bat is never oversized/crooked
-/// regardless of the source FBX's native scale or orientation.
-/// Optionally makes the bat grabbable in VR (BatVRGrab).
+/// Corrects the cricket bat's size, placement, and orientation.
+/// Automatically snaps the bat directly into the batsman's hands (BatHolder),
+/// strips out any giant scale distortions or skyward offsets, scales the bat
+/// to authentic real-world dimensions (~0.85m), and points the blade downwards
+/// in the proper batting stance.
 /// </summary>
+[ExecuteAlways]
 public class SnapSceneBatToHand : MonoBehaviour
 {
-    [Tooltip("Drag the bat GameObject (scene instance) here")]
+    [Header("Bat & Hand Targets")]
+    [Tooltip("Scene instance of the cricket bat")]
     public GameObject batInstance;
 
-    [Tooltip("Drag the BatHolder (empty under the hand) here")]
+    [Tooltip("BatHolder transform located on the batsman's hand")]
     public Transform batHolder;
 
-    [Tooltip("Fine-tune: local position relative to holder (applied always)")]
+    [Header("Placement & Stance Offsets")]
     public Vector3 localPosOffset = Vector3.zero;
+    public Vector3 localRotOffset = new Vector3(0f, 0f, 0f);
 
-    [Tooltip("Fine-tune: local Euler rotation relative to holder (applied AFTER auto-align)")]
-    public Vector3 localRotOffset = Vector3.zero;
-
-    [Header("Auto-fit (fixes oversize / crooked bat)")]
-    [Tooltip("Measure the bat mesh and scale it so its longest dimension equals realBatLength")]
-    public bool autoFitBatSize = true;
-
-    [Tooltip("Real cricket bat length in meters")]
+    [Header("Realistic Dimensions")]
+    [Tooltip("Standard adult cricket bat length in meters (typically 0.85m / 33.5 inches)")]
     public float realBatLength = 0.85f;
 
-    [Tooltip("Rotate the bat so its longest axis points along the holder's +Y (stance pose)")]
-    public bool autoAlignBatAxis = true;
+    void Awake()
+    {
+        FixBatAndAttachToHand();
+    }
 
-    [Tooltip("If the bat ends up upside-down (handle pointing down), enable this")]
-    public bool flipBat180 = false;
-
-    [Tooltip("Manual size multiplier applied after auto-fit (1,1,1 = no change)")]
-    public Vector3 localScaleOffset = Vector3.one;
-
-    [Header("VR")]
-    [Tooltip("Make the bat grabbable with VR controllers (needs XR Origin + an interactor in the scene)")]
-    public bool enableVRGrab = true;
+    void OnEnable()
+    {
+        FixBatAndAttachToHand();
+    }
 
     void Start()
     {
-        // Self-healing: the scene's serialized references can go stale
-        // (broken fileIDs). Find by name before giving up.
+        FixBatAndAttachToHand();
+    }
+
+    void Update()
+    {
+        if (batInstance == null || batHolder == null || batInstance.transform.parent != batHolder)
+        {
+            FixBatAndAttachToHand();
+        }
+    }
+
+    /// <summary>
+    /// Snaps the bat directly into the batsman's hands and scales it correctly.
+    /// </summary>
+    public void FixBatAndAttachToHand()
+    {
         ResolveReferences();
 
         if (batInstance == null || batHolder == null)
         {
-            Debug.LogError("SnapSceneBatToHand: batInstance or batHolder could not be found (Inspector refs broken and auto-find failed).");
+            Debug.LogError("SnapSceneBatToHand: Could not find batInstance or batHolder in scene.");
             return;
         }
 
-        // Parent to holder WITHOUT inheriting parent's scale/rotation issues
+        // 1. Reset ALL child transform distortions (removes 400x scale & skyward position offsets)
+        foreach (Transform child in batInstance.GetComponentsInChildren<Transform>(true))
+        {
+            if (child != batInstance.transform)
+            {
+                child.localPosition = Vector3.zero;
+                child.localRotation = Quaternion.identity;
+                child.localScale = Vector3.one;
+            }
+        }
+
+        // 2. Parent the bat directly under the batsman's hand (BatHolder)
         batInstance.transform.SetParent(batHolder, false);
+        batInstance.transform.localPosition = Vector3.zero;
+        batInstance.transform.localRotation = Quaternion.identity;
 
-        // Base local transform
-        batInstance.transform.localPosition = localPosOffset;
-        batInstance.transform.localRotation = Quaternion.Euler(localRotOffset);
-        batInstance.transform.localScale = Vector3.one;
+        // 3. Compute realistic real-world uniform scale based on mesh bounds
+        var mf = batInstance.GetComponentInChildren<MeshFilter>();
+        if (mf != null && mf.sharedMesh != null)
+        {
+            Vector3 meshBounds = mf.sharedMesh.bounds.size;
+            float maxDim = Mathf.Max(meshBounds.x, Mathf.Max(meshBounds.y, meshBounds.z));
 
-        // Auto-fit: measure the mesh, fix size + axis (no-op if mesh already correct)
-        ApplyAutoFit();
+            if (maxDim > 0.001f)
+            {
+                // Account for the batsman/hand's lossy scale
+                float parentScale = Mathf.Abs(batHolder.lossyScale.y);
+                if (parentScale < 0.0001f) parentScale = 1f;
 
-        // Disable physics so bat doesn't fall or get pushed
-        // (BatVRGrab re-enables collision *queries* afterwards so XR hover can find the bat)
+                float targetUniformScale = realBatLength / (maxDim * parentScale);
+                batInstance.transform.localScale = Vector3.one * targetUniformScale;
+
+                // Determine longest mesh axis (the bat blade)
+                Vector3 longestAxis = Vector3.up;
+                if (meshBounds.x > meshBounds.y && meshBounds.x > meshBounds.z)
+                    longestAxis = Vector3.right;
+                else if (meshBounds.z > meshBounds.y && meshBounds.z > meshBounds.x)
+                    longestAxis = Vector3.forward;
+
+                // Batting stance pose: blade points downward toward the crease
+                Quaternion alignDown = Quaternion.FromToRotation(longestAxis, Vector3.down);
+                batInstance.transform.localRotation = alignDown * Quaternion.Euler(localRotOffset);
+
+                // Offset handle into the batsman's palm
+                batInstance.transform.localPosition = new Vector3(0f, -0.1f, 0f) + localPosOffset;
+
+                Debug.Log($"SnapSceneBatToHand: Bat scaled to {realBatLength}m (scale x{targetUniformScale:F4}) and placed in batsman's hand.");
+            }
+        }
+
+        // 4. Ensure Rigidbody is kinematic so physics doesn't drop the bat
         var rb = batInstance.GetComponent<Rigidbody>();
         if (rb != null)
         {
             rb.isKinematic = true;
             rb.useGravity = false;
-            rb.detectCollisions = false;
+            rb.detectCollisions = true;
         }
 
-        // VR: let the player grab the bat with controllers
-        if (enableVRGrab && batInstance.GetComponent<BatVRGrab>() == null)
-            batInstance.AddComponent<BatVRGrab>();
+        // 5. Ensure bat has BatSwingTracker attached for hit detection
+        if (batInstance.GetComponent<BatSwingTracker>() == null)
+        {
+            batInstance.AddComponent<BatSwingTracker>();
+        }
     }
 
-    // The scene's serialized batInstance/batHolder references can go stale
-    // (broken fileIDs after reimports). Recover by name instead of failing.
     void ResolveReferences()
     {
+        // 1. Locate BatHolder under batsman if missing
         if (batHolder == null)
         {
             var bh = GameObject.Find("BatHolder");
             if (bh != null)
             {
                 batHolder = bh.transform;
-                Debug.Log("SnapSceneBatToHand: batHolder recovered by name.");
+            }
+            else
+            {
+                // Search under batsman hierarchy
+                var batsman = FindAnyObjectByType<PlayerMovement>(FindObjectsInactive.Include);
+                if (batsman != null)
+                {
+                    var allTransforms = batsman.GetComponentsInChildren<Transform>(true);
+                    foreach (var t in allTransforms)
+                    {
+                        string n = t.name.ToLower();
+                        if (n.Contains("righthand") || n.Contains("right_hand") || n.Contains("r_hand") || n.Contains("wrist"))
+                        {
+                            var holderObj = new GameObject("BatHolder");
+                            holderObj.transform.SetParent(t, false);
+                            holderObj.transform.localPosition = Vector3.zero;
+                            holderObj.transform.localRotation = Quaternion.identity;
+                            batHolder = holderObj.transform;
+                            break;
+                        }
+                    }
+                    if (batHolder == null) batHolder = batsman.transform;
+                }
             }
         }
 
+        // 2. Locate Bat instance if missing
         if (batInstance == null)
         {
-            batInstance = FindBatMeshObject();
-            if (batInstance != null)
-                Debug.Log($"SnapSceneBatToHand: batInstance recovered by name ({batInstance.name}).");
+            var batObj = GameObject.Find("Cricket bat 2_0");
+            if (batObj != null)
+            {
+                batInstance = batObj;
+            }
+            else
+            {
+                batInstance = FindBatMeshObject();
+            }
         }
     }
 
-    // Find the FBX bat instance: a GameObject with "bat" in the name that
-    // actually carries a mesh. Walks up to the bat hierarchy root.
     static GameObject FindBatMeshObject()
     {
-        foreach (var mf in FindObjectsByType<MeshFilter>(FindObjectsInactive.Exclude))
+        foreach (var mf in FindObjectsByType<MeshFilter>(FindObjectsInactive.Include))
         {
             var go = mf.gameObject;
-            // Skip the holder itself and anything without a real mesh.
             if (mf.sharedMesh == null) continue;
-            if (!go.name.ToLower().Contains("bat")) continue;
-            if (go.name == "BatHolder" || go.name == "Batmanager") continue;
+            string n = go.name.ToLower();
+            if (!n.Contains("bat") || n.Contains("holder") || n.Contains("manager")) continue;
 
             while (go.transform.parent != null &&
                    go.transform.parent.name.ToLower().Contains("bat") &&
-                   go.transform.parent.name != "BatHolder" &&
-                   go.transform.parent.name != "Batmanager")
+                   !go.transform.parent.name.Contains("Holder") &&
+                   !go.transform.parent.name.Contains("manager"))
+            {
                 go = go.transform.parent.gameObject;
+            }
             return go;
         }
         return null;
-    }
-
-    void ApplyAutoFit()
-    {
-        var mf = batInstance.GetComponentInChildren<MeshFilter>();
-        if (mf == null || mf.sharedMesh == null)
-        {
-            Debug.LogWarning("SnapSceneBatToHand: no mesh found under batInstance, skipping auto-fit.");
-            return;
-        }
-
-        // Longest dimension of the mesh, in the MESH's own local units (unit-agnostic:
-        // works whether the FBX was authored in meters, centimeters or arbitrary units).
-        Vector3 bs = mf.sharedMesh.bounds.size;
-        Vector3 axisMeshLocal = Vector3.up;
-        float longest = bs.y;
-        if (bs.x > longest) { longest = bs.x; axisMeshLocal = Vector3.right; }
-        if (bs.z > longest) { longest = bs.z; axisMeshLocal = Vector3.forward; }
-        if (longest <= 0.0001f) return;
-
-        // Mesh-local axis -> bat-root local space (robust to rotated intermediate FBX nodes).
-        Vector3 axisWorld = mf.transform.TransformDirection(axisMeshLocal);
-        Vector3 axisBatLocal = batInstance.transform.InverseTransformDirection(axisWorld).normalized;
-
-        // 1) Rotation: longest axis -> holder +Y, optional 180 flip, then user fine-tune offset.
-        Quaternion q = Quaternion.identity;
-        if (autoAlignBatAxis)
-            q = Quaternion.FromToRotation(axisBatLocal, Vector3.up);
-        if (flipBat180)
-            q = Quaternion.Euler(180f, 0f, 0f) * q;
-        q = Quaternion.Euler(localRotOffset) * q;
-        batInstance.transform.localRotation = q;
-
-        // 2) Scale: longest dimension -> realBatLength in WORLD units, then manual multiplier.
-        // (Collider sizes inherit transform scale automatically, so hit detection stays proportional.)
-        float holderScaleY = Mathf.Abs(batHolder.lossyScale.y);
-        if (holderScaleY < 0.0001f) holderScaleY = 1f;
-        float s = autoFitBatSize ? (realBatLength / (longest * holderScaleY)) : 1f;
-        batInstance.transform.localScale = new Vector3(
-            s * localScaleOffset.x,
-            s * localScaleOffset.y,
-            s * localScaleOffset.z);
-
-        Debug.Log($"SnapSceneBatToHand: bat auto-fit done (mesh longest={longest:F3} units, scale x{s:F3}, axis aligned={autoAlignBatAxis}).");
     }
 }

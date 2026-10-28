@@ -31,10 +31,26 @@ public class CricketMatchManager : MonoBehaviour
 
     void Start()
     {
-        var bowler = GameObject.Find("Bowler");
-        var batsman = FindAnyObjectByType<PlayerMovement>();
-        Vector3 bowlerPos = bowler != null ? bowler.transform.position : new Vector3(2.23f, 0f, -6.93f);
-        Vector3 batsmanPos = batsman != null ? batsman.transform.position : new Vector3(-13.3f, 0f, 2.1f);
+        Vector3 bowlerPos = new Vector3(2.23f, 0f, -6.93f);
+        var activeBowler = FindAnyObjectByType<BowlingManager>();
+        if (activeBowler != null)
+        {
+            bowlerPos = activeBowler.transform.position;
+        }
+        else
+        {
+            var anyBowler = FindAnyObjectByType<BowlingManager>(FindObjectsInactive.Include);
+            if (anyBowler != null) bowlerPos = anyBowler.transform.position;
+            else
+            {
+                var bGo = GameObject.Find("Bowler");
+                if (bGo != null) bowlerPos = bGo.transform.position;
+            }
+        }
+
+        Vector3 batsmanPos = new Vector3(-13.3f, 0f, 2.1f);
+        var batsman = FindAnyObjectByType<PlayerMovement>(FindObjectsInactive.Include);
+        if (batsman != null) batsmanPos = batsman.transform.position;
 
         Vector3 pc = (bowlerPos + batsmanPos) * 0.5f;
         pc.y = 0f;

@@ -19,7 +19,7 @@ public class WicketKeeper : MonoBehaviour
 
     public static WicketKeeper Build(Vector3 stumpPos, Vector3 awayFromBowler)
     {
-        var existing = FindFirstObjectByType<WicketKeeper>();
+        var existing = FindAnyObjectByType<WicketKeeper>();
         if (existing != null) return existing;
 
         Vector3 pos = stumpPos + awayFromBowler * 1.6f;
@@ -88,7 +88,7 @@ public class WicketKeeper : MonoBehaviour
             return;
         }
 
-        var ball = FindFirstObjectByType<BallHitPhysics>();
+        var ball = FindAnyObjectByType<BallHitPhysics>();
 
         Vector3 target = homePos;
         float speed = 2f;

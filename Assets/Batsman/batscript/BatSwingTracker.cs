@@ -2,25 +2,38 @@ using UnityEngine;
 
 /// <summary>
 /// Measures the bat's real swing velocity in world metres/second.
-/// Works for mouse swings and VR controller swings alike, because it
-/// tracks the bat transform itself. Added to the bat at runtime.
+/// Combines linear handle displacement with angular rotation speed,
+/// ensuring that wrist snaps and rotational swings register true strike speed
+/// even when the handle pivot stays stationary.
+/// Works seamlessly for mouse swings, keyboard swings, and VR controller swings.
 /// </summary>
 public class BatSwingTracker : MonoBehaviour
 {
-    // Below this bat speed a "touch" is ignored (ball just passes the still bat).
-    const float HitThreshold = 3.5f;
-    // Between these speeds the ball is softly blocked instead of smashed.
-    const float BlockThreshold = 1.0f;
+    [Header("Detection Thresholds")]
+    [Tooltip("Below this speed a contact is treated as a glance / leave (m/s)")]
+    public float hitThreshold = 3.5f;
 
-    Vector3 prevPos;
-    Vector3 smoothVel;
-    float maxRecentSpeed;
-    float recentTimer;
-    const float RecentWindow = 0.25f;
+    [Tooltip("Between block and hit threshold the ball is defensively blocked (m/s)")]
+    public float blockThreshold = 1.0f;
+
+    [Tooltip("Estimated distance from bat pivot to sweet spot / blade tip (meters)")]
+    public float bladeLength = 0.70f;
+
+    private Vector3 prevRootPos;
+    private Vector3 prevTipPos;
+    private Quaternion prevRot;
+
+    private Vector3 smoothVel;
+    private float smoothSpeed;
+    private float maxRecentSpeed;
+    private float recentTimer;
+    private const float RecentWindow = 0.25f;
 
     void Start()
     {
-        prevPos = transform.position;
+        prevRootPos = transform.position;
+        prevTipPos = GetTipPosition();
+        prevRot = transform.rotation;
     }
 
     void Update()
@@ -28,26 +41,58 @@ public class BatSwingTracker : MonoBehaviour
         float dt = Time.deltaTime;
         if (dt > 0.0001f)
         {
-            Vector3 v = (transform.position - prevPos) / dt;
-            // Heavier smoothing on tiny speeds so a still bat reads ~0.
-            smoothVel = Vector3.Lerp(smoothVel, v, 0.6f);
-            float s = smoothVel.magnitude;
-            if (s > maxRecentSpeed) maxRecentSpeed = s;
+            Vector3 currentRootPos = transform.position;
+            Vector3 currentTipPos = GetTipPosition();
+
+            // 1. Linear root velocity
+            Vector3 vRoot = (currentRootPos - prevRootPos) / dt;
+
+            // 2. Tip velocity in world space
+            Vector3 vTip = (currentTipPos - prevTipPos) / dt;
+
+            // 3. Angular velocity contribution (omega * r)
+            float angleDelta = Quaternion.Angle(transform.rotation, prevRot);
+            float angularSpeedRad = (angleDelta * Mathf.Deg2Rad) / dt;
+            float rotationalTipSpeed = angularSpeedRad * bladeLength;
+
+            // Effective physical impact speed is whichever is higher: direct tip motion or angular+root
+            float instantSpeed = Mathf.Max(vTip.magnitude, vRoot.magnitude + rotationalTipSpeed);
+
+            // Responsive smoothing
+            smoothSpeed = Mathf.Lerp(smoothSpeed, instantSpeed, 0.45f);
+
+            // Effective directional vector
+            Vector3 effectiveVel = (vTip.sqrMagnitude > 0.04f) ? vTip : (vRoot + transform.forward * rotationalTipSpeed);
+            smoothVel = Vector3.Lerp(smoothVel, effectiveVel, 0.45f);
+
+            if (smoothSpeed > maxRecentSpeed)
+            {
+                maxRecentSpeed = smoothSpeed;
+            }
+
+            prevRootPos = currentRootPos;
+            prevTipPos = currentTipPos;
+            prevRot = transform.rotation;
         }
-        prevPos = transform.position;
 
         recentTimer += Time.deltaTime;
         if (recentTimer >= RecentWindow)
         {
             recentTimer = 0f;
-            maxRecentSpeed = smoothVel.magnitude;
+            maxRecentSpeed = smoothSpeed;
         }
+    }
+
+    Vector3 GetTipPosition()
+    {
+        // Sample sweet-spot along local UP (matches standard cricket bat alignment in SnapSceneBatToHand)
+        return transform.position + transform.up * bladeLength;
     }
 
     /// <summary>Peak swing speed over the last quarter second (m/s).</summary>
     public float GetSwingSpeed()
     {
-        return Mathf.Max(smoothVel.magnitude, maxRecentSpeed);
+        return Mathf.Max(smoothSpeed, maxRecentSpeed);
     }
 
     /// <summary>Swing direction in world space (full 3D).</summary>
@@ -58,6 +103,14 @@ public class BatSwingTracker : MonoBehaviour
         return transform.forward;
     }
 
-    public bool IsRealSwing() { return GetSwingSpeed() >= HitThreshold; }
-    public bool IsBlock() { float s = GetSwingSpeed(); return s >= BlockThreshold && s < HitThreshold; }
+    public bool IsRealSwing()
+    {
+        return GetSwingSpeed() >= hitThreshold;
+    }
+
+    public bool IsBlock()
+    {
+        float s = GetSwingSpeed();
+        return s >= blockThreshold && s < hitThreshold;
+    }
 }
