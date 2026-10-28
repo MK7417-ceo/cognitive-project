@@ -1,166 +1,200 @@
-# game_reaction.py - Reaction Test Game (fixed: manual confirm replaces the broken JS bridge)
+# game_reaction.py - Automatic Reaction Test with URL Bridge & Persistent Scoring
+import json
+from pathlib import Path
 import streamlit as st
 import pandas as pd
 from streamlit.components.v1 import html
 
-st.set_page_config(page_title="Reaction Test Game", page_icon="⚡")
+DATA_DIR = Path("data")
+SCORES_FILE = DATA_DIR / "reaction_scores.json"
+
+st.set_page_config(page_title="Reaction Test Game", page_icon="⚡", layout="centered")
+
+def ensure_data_dir():
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+def load_saved_scores():
+    ensure_data_dir()
+    if SCORES_FILE.exists():
+        try:
+            with open(SCORES_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, list):
+                    return [float(x) for x in data]
+        except Exception:
+            pass
+    return []
+
+def save_scores(scores):
+    ensure_data_dir()
+    try:
+        with open(SCORES_FILE, "w", encoding="utf-8") as f:
+            json.dump(scores, f, indent=2)
+    except Exception as e:
+        st.error(f"Error saving scores: {e}")
+
+# Initialize session scores
+if "scores" not in st.session_state:
+    st.session_state.scores = load_saved_scores()
+
+# Automatic bridge: Check if score arrived via URL query parameters
+query_params = st.query_params
+if "rt" in query_params:
+    try:
+        new_rt = float(query_params["rt"])
+        if 0.05 <= new_rt <= 10.0:
+            st.session_state.scores.append(round(new_rt, 3))
+            save_scores(st.session_state.scores)
+            st.toast(f"⚡ Recorded: {new_rt:.3f}s", icon="✅")
+    except (ValueError, TypeError):
+        pass
+    finally:
+        st.query_params.clear()
+        st.rerun()
 
 st.title("⚡ Reaction Test Game")
-st.write("Click FAST when the box turns **GREEN**!")
+st.write("Click as **FAST** as possible when the box turns **GREEN**!")
 
-# Initialize session state
-if "scores" not in st.session_state:
-    st.session_state.scores = []
-
-# Show stats
+# Top metric summary
 col1, col2, col3 = st.columns(3)
 if st.session_state.scores:
-    col1.metric("Best", f"{min(st.session_state.scores):.3f}s")
-    col2.metric("Average", f"{sum(st.session_state.scores)/len(st.session_state.scores):.3f}s")
-    col3.metric("Attempts", len(st.session_state.scores))
+    best_score = min(st.session_state.scores)
+    avg_score = sum(st.session_state.scores) / len(st.session_state.scores)
+    col1.metric("Best Reaction", f"{best_score:.3f}s")
+    col2.metric("Average Reaction", f"{avg_score:.3f}s")
+    col3.metric("Total Attempts", len(st.session_state.scores))
 else:
-    col1.metric("Best", "-")
-    col2.metric("Average", "-")
-    col3.metric("Attempts", "0")
+    col1.metric("Best Reaction", "-")
+    col2.metric("Average Reaction", "-")
+    col3.metric("Total Attempts", "0")
 
-# JavaScript game component (display only - no fake bridge to Streamlit)
+# High-precision automated HTML5 / JS Game Component
 game_html = """
-<div id="game-container" style="text-align: center; margin: 20px 0;">
+<div id="game-container" style="text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
     <div id="color-box" style="
         width: 100%;
-        height: 300px;
-        background-color: gray;
-        border-radius: 20px;
+        height: 280px;
+        background-color: #4A5568;
+        border-radius: 16px;
         display: flex;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
         cursor: pointer;
-        transition: all 0.1s ease;
-        margin-bottom: 20px;
+        user-select: none;
+        transition: background-color 0.05s ease;
+        margin-bottom: 16px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.15);
     ">
-        <h2 id="box-text" style="color: white;">⚡ READY</h2>
+        <h2 id="box-text" style="color: white; font-size: 32px; margin: 0;">⚡ CLICK 'START' TO PLAY</h2>
+        <p id="box-sub" style="color: #E2E8F0; font-size: 16px; margin: 8px 0 0 0;">Wait for green, then click as fast as possible</p>
     </div>
-    <button id="start-btn" style="
-        padding: 15px 30px;
+    <button id="main-btn" style="
+        padding: 14px 32px;
         font-size: 18px;
-        background-color: #4CAF50;
+        font-weight: bold;
+        background-color: #3182CE;
         color: white;
         border: none;
         border-radius: 10px;
         cursor: pointer;
-        margin: 10px;
+        box-shadow: 0 4px 12px rgba(49, 130, 206, 0.4);
     ">🎮 START GAME</button>
-    <button id="click-btn" style="
-        padding: 15px 30px;
-        font-size: 18px;
-        background-color: #2196F3;
-        color: white;
-        border: none;
-        border-radius: 10px;
-        cursor: pointer;
-        margin: 10px;
-        display: none;
-    ">🟢 CLICK HERE (ON GREEN)</button>
 </div>
 
 <script>
-    let gameActive = false;
-    let waitingForGreen = false;
-    let greenTime = null;
-    let timeoutId = null;
+    let state = 'idle'; // idle | waiting | ready | done
+    let stimulusTime = 0;
+    let timerId = null;
 
-    const colorBox = document.getElementById('color-box');
+    const box = document.getElementById('color-box');
     const boxText = document.getElementById('box-text');
-    const startBtn = document.getElementById('start-btn');
-    const clickBtn = document.getElementById('click-btn');
+    const boxSub = document.getElementById('box-sub');
+    const btn = document.getElementById('main-btn');
 
-    function setRed() {
-        colorBox.style.backgroundColor = '#ff4444';
-        boxText.innerHTML = '🔴 WAIT...';
-        boxText.style.color = 'white';
-        waitingForGreen = true;
-        const delay = Math.random() * 3000 + 1000;  // 1-4 seconds
-        timeoutId = setTimeout(setGreen, delay);
+    function startRound() {
+        if (timerId) clearTimeout(timerId);
+        state = 'waiting';
+        box.style.backgroundColor = '#E53E3E'; // Red
+        boxText.textContent = '🔴 WAIT FOR GREEN...';
+        boxText.style.color = '#FFFFFF';
+        boxSub.textContent = 'Do not click yet!';
+        btn.style.display = 'none';
+
+        const delay = Math.random() * 2500 + 1500; // 1.5s to 4.0s random delay
+        timerId = setTimeout(() => {
+            state = 'ready';
+            stimulusTime = performance.now();
+            box.style.backgroundColor = '#38A169'; // Green
+            boxText.textContent = '🟢 CLICK NOW!';
+            boxText.style.color = '#000000';
+            boxSub.textContent = 'Fast! Click the box!';
+        }, delay);
     }
 
-    function setGreen() {
-        if (!waitingForGreen) return;
-        colorBox.style.backgroundColor = '#44ff44';
-        boxText.innerHTML = '🟢 CLICK NOW!';
-        boxText.style.color = 'black';
-        waitingForGreen = false;
-        gameActive = true;
-        greenTime = Date.now();
-        clickBtn.style.display = 'inline-block';
-        startBtn.style.display = 'none';
-    }
+    function handleBoxClick() {
+        if (state === 'waiting') {
+            // Clicked too early
+            if (timerId) clearTimeout(timerId);
+            state = 'idle';
+            box.style.backgroundColor = '#DD6B20'; // Orange
+            boxText.textContent = '❌ TOO EARLY!';
+            boxSub.textContent = 'Wait for green before clicking. Try again!';
+            btn.style.display = 'inline-block';
+            btn.textContent = '🔄 TRY AGAIN';
+        } else if (state === 'ready') {
+            const reactionMs = performance.now() - stimulusTime;
+            const reactionSec = (reactionMs / 1000).toFixed(3);
+            state = 'done';
 
-    function reset() {
-        if (timeoutId) clearTimeout(timeoutId);
-        gameActive = false;
-        waitingForGreen = false;
-        colorBox.style.backgroundColor = 'gray';
-        boxText.innerHTML = '⚡ READY';
-        clickBtn.style.display = 'none';
-        startBtn.style.display = 'inline-block';
-    }
+            box.style.backgroundColor = '#2B6CB0'; // Blue result
+            boxText.textContent = '⏱️ ' + reactionSec + 's';
+            boxText.style.color = '#FFFFFF';
+            boxSub.textContent = 'Auto-saving attempt...';
 
-    startBtn.onclick = () => { reset(); setRed(); };
+            btn.style.display = 'inline-block';
+            btn.textContent = '🎮 PLAY AGAIN';
 
-    clickBtn.onclick = () => {
-        if (gameActive && greenTime) {
-            const reactionTime = (Date.now() - greenTime) / 1000;
-            reset();
-            // Show the measured time clearly so the user can record it below.
-            colorBox.style.backgroundColor = '#cccccc';
-            boxText.style.color = 'black';
-            boxText.innerHTML = '⏱️ ' + reactionTime.toFixed(3) + 's — type it below and press Save!';
-        } else if (!gameActive && waitingForGreen) {
-            alert('❌ Too early! Wait for GREEN!');
-            reset();
-        } else {
-            alert('❌ Click START GAME first!');
+            // Auto-bridge: send score directly to Streamlit via URL parameter
+            setTimeout(() => {
+                const targetUrl = new URL(window.parent.location.href);
+                targetUrl.searchParams.set('rt', reactionSec);
+                window.parent.location.href = targetUrl.toString();
+            }, 350);
         }
-    };
+    }
+
+    btn.onclick = () => { startRound(); };
+    box.onclick = () => { handleBoxClick(); };
 </script>
 """
 
-html(game_html, height=520)
+html(game_html, height=400)
 
-# Manual-but-working score recording (replaces the broken iframe bridge)
-st.subheader("✍️ Record your attempt")
-entered = st.number_input(
-    "Reaction time shown in the box (seconds)",
-    min_value=0.0, max_value=10.0, step=0.001, format="%.3f",
-    key="rt_input",
-)
-if st.button("💾 Save attempt"):
-    if entered <= 0:
-        st.warning("Play a round first, then enter the time shown in the box.")
-    else:
-        st.session_state.scores.append(float(entered))
-        st.success(f"Saved: {entered:.3f}s")
-        st.rerun()
-
-# Score history
+# Score Table & History
 if st.session_state.scores:
     st.subheader("📊 Score History")
     df = pd.DataFrame({
         "Attempt": range(1, len(st.session_state.scores) + 1),
-        "Reaction Time (seconds)": [round(s, 3) for s in st.session_state.scores]
+        "Reaction Time (s)": [f"{s:.3f}" for s in st.session_state.scores],
+        "Performance Rating": [
+            "⚡ Elite" if s < 0.22 else "🟢 Great" if s < 0.32 else "🟡 Average" if s < 0.45 else "🔴 Slow"
+            for s in st.session_state.scores
+        ]
     })
     st.dataframe(df, use_container_width=True)
 
-    if st.button("🔄 Reset All Scores"):
+    if st.button("🗑️ Clear All Scores"):
         st.session_state.scores = []
+        save_scores([])
         st.rerun()
 
-with st.expander("📖 How to Play"):
-    st.write("""
-    1. Click **START GAME**
-    2. Box turns **RED** - DO NOT CLICK!
-    3. After random time (1-4 seconds), box turns **GREEN**
-    4. Click **CLICK HERE** as FAST as possible
-    5. Type the shown time below and press **Save attempt**
-    6. Shorter time = Better score!
-    """)
+# Optional manual input for offline or restricted environments
+with st.expander("✍️ Manual Attempt Entry (Optional)"):
+    manual_val = st.number_input("Time in seconds", min_value=0.0, max_value=10.0, step=0.001, format="%.3f")
+    if st.button("Save Manual Entry"):
+        if manual_val > 0:
+            st.session_state.scores.append(round(float(manual_val), 3))
+            save_scores(st.session_state.scores)
+            st.success(f"Saved: {manual_val:.3f}s")
+            st.rerun()
