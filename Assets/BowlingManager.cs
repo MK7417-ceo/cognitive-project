@@ -59,8 +59,8 @@ public class BowlingManager : MonoBehaviour
     Transform activeSpawn;
     int lastIndex = -1;
 
-    public static bool isLeftArm;
-    public static bool isSpinBowler;
+    public bool isLeftArm { get; private set; }
+    public bool isSpinBowler { get; private set; }
 
     int ballCount = 0;
     int bowlerIndex = 0;

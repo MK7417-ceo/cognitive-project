@@ -225,3 +225,4 @@ public class Module1_ReactionTime : MonoBehaviour
         OnSessionCompleted?.Invoke(avgRT, finalScore);
     }
 }
+

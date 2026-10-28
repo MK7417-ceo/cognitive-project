@@ -10,30 +10,47 @@ public class OverManager : MonoBehaviour
     [Header("Timers")]
     public float overBreakTime = 15f; // Over ke baad 15 second ka gap
 
-    // NOTE: RecordBall() abhi kahi se call nahi hota — bowling flow (jaise
-    // BowlingManager.OnBallDelivered) se call karo taaki over-break chale.
+    void Awake()
+    {
+        // Auto-find all bowlers in scene if unassigned or broken
+        if (bowlers == null || bowlers.Length == 0)
+        {
+            var allManagers = FindObjectsByType<BowlingManager>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            if (allManagers != null && allManagers.Length > 0)
+            {
+                bowlers = new GameObject[allManagers.Length];
+                for (int i = 0; i < allManagers.Length; i++)
+                    bowlers[i] = allManagers[i].gameObject;
+            }
+        }
+
+        // Disable all duplicate bowlers on Awake immediately, then activate only one.
+        // This prevents 8 bowlers from running simultaneously or fighting each other.
+        if (bowlers != null && bowlers.Length > 0)
+        {
+            SetAllBowlers(false);
+            SwitchToRandomBowler();
+        }
+    }
+
     void Start()
     {
         if (bowlers == null || bowlers.Length == 0)
         {
-            Debug.LogError("OverManager: no bowlers assigned. Assign bowlers in the Inspector.");
+            Debug.LogError("OverManager: no bowlers assigned or found in the scene.");
             enabled = false;
             return;
         }
-        // Game start hote hi ek bowler le aao
-        SwitchToRandomBowler();
     }
 
     public void RecordBall()
     {
         ballCount++;
-        Debug.Log("Ball number: " + ballCount);
+        Debug.Log("OverManager: Ball number " + ballCount + "/6 recorded.");
 
         if (ballCount >= 6)
         {
             ballCount = 0; // Agle over ke liye reset
-            
-            // Instantly change karne ki jagah timer start karo
             StartCoroutine(OverBreakRoutine());
         }
     }
@@ -63,7 +80,7 @@ public class OverManager : MonoBehaviour
         if (bowlers[randomIndex] != null)
         {
             bowlers[randomIndex].SetActive(true);
-            Debug.Log("Naya Bowler Aaya: " + bowlers[randomIndex].name);
+            Debug.Log("OverManager: Naya Bowler Aaya -> " + bowlers[randomIndex].name);
         }
         else
         {
