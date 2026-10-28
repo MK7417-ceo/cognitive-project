@@ -224,6 +224,26 @@ public class BowlingManager : MonoBehaviour
 
         yield return new WaitForSeconds(betweenBallsDelay);
 
+        // Phase 1 / bowler-timing fix: do NOT bowl the next delivery while
+        // the current ball is still live. Real cricket waits for the ball
+        // to be dead, caught, bowled, or to cross the boundary. The old
+        // fixed-delay-only logic, combined with BallThrower's 5 s destroy,
+        // is what made a hit ball vanish between the bat and the boundary.
+        // Safety timeout (30 s) so a stuck ball can never freeze the match.
+        float waited = 0f;
+        while (waited < 30f)
+        {
+            bool anyLive = false;
+            foreach (var hp in FindObjectsByType<BallHitPhysics>(FindObjectsInactive.Exclude))
+            {
+                if (hp.State == BallHitPhysics.BallState.Flying) anyLive = true;
+                else if (hp.State == BallHitPhysics.BallState.Hit && !hp.IsBoundaryResolved) anyLive = true;
+            }
+            if (!anyLive) break;
+            yield return new WaitForSeconds(0.25f);
+            waited += 0.25f;
+        }
+
         // Walk back: return to the run-up start like a real bowler turning around.
         var runUp = GetComponent<RunUpController>();
         if (runUp != null)
