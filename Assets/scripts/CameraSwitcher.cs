@@ -1,4 +1,7 @@
 using UnityEngine;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem;
+#endif
 
 public class CameraSwitcher : MonoBehaviour
 {
@@ -18,22 +21,56 @@ public class CameraSwitcher : MonoBehaviour
 
     void Update()
     {
-        // 1-9 number keys se switch karein
-        int keyCount = Mathf.Min(stadiumCameras.Length, 9);
-        for (int i = 0; i < keyCount; i++)
+        if (stadiumCameras == null || stadiumCameras.Length == 0) return;
+
+#if ENABLE_INPUT_SYSTEM
+        // 1. New Input System keyboard check
+        if (Keyboard.current != null)
         {
-            if (Input.GetKeyDown(KeyCode.Alpha1 + i))
+            // 'C' key switches to next camera
+            if (Keyboard.current.cKey.wasPressedThisFrame)
             {
-                ActivateCamera(i);
-                break;
+                currentCamIndex = (currentCamIndex + 1) % stadiumCameras.Length;
+                ActivateCamera(currentCamIndex);
+                return;
+            }
+
+            // Direct digit keys 1-9
+            if (Keyboard.current.digit1Key.wasPressedThisFrame) { ActivateCamera(0); return; }
+            if (Keyboard.current.digit2Key.wasPressedThisFrame) { ActivateCamera(1); return; }
+            if (Keyboard.current.digit3Key.wasPressedThisFrame) { ActivateCamera(2); return; }
+            if (Keyboard.current.digit4Key.wasPressedThisFrame) { ActivateCamera(3); return; }
+            if (Keyboard.current.digit5Key.wasPressedThisFrame) { ActivateCamera(4); return; }
+            if (Keyboard.current.digit6Key.wasPressedThisFrame) { ActivateCamera(5); return; }
+            if (Keyboard.current.digit7Key.wasPressedThisFrame) { ActivateCamera(6); return; }
+            if (Keyboard.current.digit8Key.wasPressedThisFrame) { ActivateCamera(7); return; }
+            if (Keyboard.current.digit9Key.wasPressedThisFrame) { ActivateCamera(8); return; }
+            return;
+        }
+#endif
+
+        // 2. Legacy Input Manager fallback
+        try
+        {
+            int keyCount = Mathf.Min(stadiumCameras.Length, 9);
+            for (int i = 0; i < keyCount; i++)
+            {
+                if (Input.GetKeyDown(KeyCode.Alpha1 + i))
+                {
+                    ActivateCamera(i);
+                    return;
+                }
+            }
+
+            if (Input.GetKeyDown(KeyCode.C))
+            {
+                currentCamIndex = (currentCamIndex + 1) % stadiumCameras.Length;
+                ActivateCamera(currentCamIndex);
             }
         }
-
-        // 'C' key se sequential switch karein
-        if (Input.GetKeyDown(KeyCode.C))
+        catch
         {
-            currentCamIndex = (currentCamIndex + 1) % stadiumCameras.Length;
-            ActivateCamera(currentCamIndex);
+            // Ignored if legacy input is disabled
         }
     }
 

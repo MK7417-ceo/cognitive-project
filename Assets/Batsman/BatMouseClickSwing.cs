@@ -1,4 +1,7 @@
 using UnityEngine;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem;
+#endif
 
 public class BatMouseClickSwing : MonoBehaviour
 {
@@ -16,9 +19,32 @@ public class BatMouseClickSwing : MonoBehaviour
 
     void Update()
     {
-        // Mouse movement → direction decide kare
-        float mouseX = Input.GetAxisRaw("Mouse X");
-        float mouseY = Input.GetAxisRaw("Mouse Y");
+        float mouseX = 0f;
+        float mouseY = 0f;
+        bool clickTriggered = false;
+
+#if ENABLE_INPUT_SYSTEM
+        if (Mouse.current != null)
+        {
+            Vector2 delta = Mouse.current.delta.ReadValue();
+            mouseX = delta.x * 0.1f;
+            mouseY = delta.y * 0.1f;
+            clickTriggered = Mouse.current.leftButton.wasPressedThisFrame;
+        }
+        else
+#endif
+        {
+            try
+            {
+                mouseX = Input.GetAxisRaw("Mouse X");
+                mouseY = Input.GetAxisRaw("Mouse Y");
+                clickTriggered = Input.GetMouseButtonDown(0);
+            }
+            catch
+            {
+                // Ignored if legacy input is disabled
+            }
+        }
 
         targetX -= mouseY * directionSensitivity;
         targetY += mouseX * directionSensitivity;
@@ -26,13 +52,12 @@ public class BatMouseClickSwing : MonoBehaviour
         targetX = Mathf.Clamp(targetX, -maxXAngle, maxXAngle);
         targetY = Mathf.Clamp(targetY, -maxYAngle, maxYAngle);
 
-        // Mouse click → swing start
-        if (Input.GetMouseButtonDown(0))
+        if (clickTriggered)
         {
             isSwinging = true;
         }
 
-        // Swing logic
+        // Swing execution
         if (isSwinging)
         {
             Quaternion targetRot = Quaternion.Euler(targetX, targetY, 0);
@@ -42,7 +67,6 @@ public class BatMouseClickSwing : MonoBehaviour
                 Time.deltaTime * swingSpeed
             );
 
-            // Jab almost pahunch jaye → return
             if (Quaternion.Angle(transform.localRotation, targetRot) < 2f)
             {
                 isSwinging = false;
@@ -50,10 +74,11 @@ public class BatMouseClickSwing : MonoBehaviour
         }
         else
         {
-            // Bat idle / return to normal
+            // Return to stance
+            Quaternion defaultRot = Quaternion.Euler(0, 0, 0);
             transform.localRotation = Quaternion.Slerp(
                 transform.localRotation,
-                Quaternion.identity,
+                defaultRot,
                 Time.deltaTime * returnSpeed
             );
         }
