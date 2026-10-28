@@ -1,12 +1,6 @@
 using UnityEngine;
 
 /// <summary>
-/// Marks the generous "wicket zone" trigger around the stumps.
-/// Any ball entering it is treated as hitting the stumps.
-/// </summary>
-public class WicketZone : MonoBehaviour { }
-
-/// <summary>
 /// Builds realistic stumps (3 stumps + 2 bails) behind the batsman at runtime
 /// and knocks them flying when the ball hits — like a real "bowled" dismissal.
 /// </summary>
@@ -18,7 +12,7 @@ public class StumpsPhysics : MonoBehaviour
     /// <summary>Build stumps once, placed behind the batsman away from the bowler.</summary>
     public static StumpsPhysics Build(Vector3 batsmanPos, Vector3 bowlerPos)
     {
-        var existing = FindFirstObjectByType<StumpsPhysics>();
+        var existing = FindAnyObjectByType<StumpsPhysics>();
         if (existing != null) return existing;
 
         Vector3 away = batsmanPos - bowlerPos;
@@ -135,3 +129,9 @@ public class StumpsPhysics : MonoBehaviour
         Debug.Log("StumpsPhysics: BOWLED! Stumps knocked down.");
     }
 }
+
+/// <summary>
+/// Marks the generous "wicket zone" trigger around the stumps.
+/// Any ball entering it is treated as hitting the stumps.
+/// </summary>
+public class WicketZone : MonoBehaviour { }
