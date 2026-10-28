@@ -117,3 +117,4 @@ public class BallTrackingCamera : MonoBehaviour
         defaultIdleRotation = Quaternion.LookRotation(pitchCentre - defaultIdlePosition, Vector3.up);
     }
 }
+

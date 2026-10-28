@@ -127,6 +127,16 @@ public class CameraSwitcher : MonoBehaviour
             }
         }
 
+        // Ensure strictly only 1 AudioListener is enabled across the whole scene
+        var allListeners = FindObjectsByType<AudioListener>(FindObjectsInactive.Include);
+        foreach (var al in allListeners)
+        {
+            if (al != null)
+            {
+                al.enabled = (stadiumCameras[index] != null && al.gameObject == stadiumCameras[index].gameObject);
+            }
+        }
+
         // Announce camera switch in HUD
         string camLabel = cameraNames[index];
         Debug.Log($"📷 Switched to Camera: {camLabel}");
