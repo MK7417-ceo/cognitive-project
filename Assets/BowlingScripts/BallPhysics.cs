@@ -1,6 +1,7 @@
 using UnityEngine;
 
 [RequireComponent(typeof(Rigidbody))]
+[System.Obsolete("BallPhysics is superseded by BallThrower (launch trajectory) and BallHitPhysics (impact & match physics).")]
 public class BallPhysics : MonoBehaviour
 {
     public enum DeliveryType { 

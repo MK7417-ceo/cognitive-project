@@ -103,7 +103,7 @@ public class BallHitPhysics : MonoBehaviour
         if (rb == null) return;
 
         var flight = GetComponent<BallFlightData>();
-        Vector3 v = rb.velocity;
+        Vector3 v = rb.linearVelocity;
 
         Vector3 flat = v; flat.y = 0f;
         if (flat.sqrMagnitude < 0.01f) return;
@@ -155,7 +155,7 @@ public class BallHitPhysics : MonoBehaviour
             nv = v * 0.94f + Vector3.up * 1.0f;
         }
 
-        rb.velocity = nv;
+        rb.linearVelocity = nv;
 
         // Visible spin on turning balls.
         if (turn != 0f)
@@ -170,7 +170,7 @@ public class BallHitPhysics : MonoBehaviour
         State = BallState.Dead;
         if (rb != null)
         {
-            rb.velocity = Vector3.zero;
+            rb.linearVelocity = Vector3.zero;
             rb.angularVelocity = Vector3.zero;
             rb.isKinematic = true;
         }
@@ -182,7 +182,7 @@ public class BallHitPhysics : MonoBehaviour
     void OnBowled()
     {
         State = BallState.Dead;
-        Vector3 incoming = rb.velocity;
+        Vector3 incoming = rb.linearVelocity;
 
         var stumps = FindAnyObjectByType<StumpsPhysics>();
         if (stumps != null) stumps.KnockDown(incoming);
@@ -192,7 +192,7 @@ public class BallHitPhysics : MonoBehaviour
         back.y = 0f;
         if (back.sqrMagnitude < 0.01f) back = Vector3.back;
         back.Normalize();
-        rb.velocity = back * incoming.magnitude * 0.35f + Vector3.up * 3f;
+        rb.linearVelocity = back * incoming.magnitude * 0.35f + Vector3.up * 3f;
         rb.angularVelocity = Random.insideUnitSphere * 10f;
 
         var ui = CricketMatchManager.Instance;
@@ -233,18 +233,18 @@ public class BallHitPhysics : MonoBehaviour
             }
             else
             {
-                dir = -rb.velocity;
+                dir = -rb.linearVelocity;
             }
             dir.y = 0f;
             if (dir.sqrMagnitude < 0.01f) dir = Vector3.back;
             dir.Normalize();
-            rb.velocity = dir * 7f + Vector3.up * 2.5f;
+            rb.linearVelocity = dir * 7f + Vector3.up * 2.5f;
             rb.angularVelocity = Random.insideUnitSphere * 8f;
             Debug.Log("BallHitPhysics: EDGED! flying to the keeper...");
         }
         else
         {
-            rb.velocity = rb.velocity * 0.12f + Vector3.up * 1.2f;
+            rb.linearVelocity = rb.linearVelocity * 0.12f + Vector3.up * 1.2f;
             rb.angularVelocity *= 0.2f;
             Debug.Log("BallHitPhysics: blocked.");
         }
@@ -289,7 +289,7 @@ public class BallHitPhysics : MonoBehaviour
     {
         rb = GetComponent<Rigidbody>();
         State = BallState.Hit;
-        rb.velocity = velocity;
+        rb.linearVelocity = velocity;
         // A touch of backspin, like a real lofted shot.
         rb.angularVelocity = Vector3.Cross(velocity.normalized, Vector3.up) * velocity.magnitude * 0.4f;
         lifeTimer = 14f;

@@ -65,7 +65,13 @@ public class ModuleSelectorUI : MonoBehaviour
     };
     
     private int selectedIndex = -1;
+    private Canvas menuCanvas;
     
+    void Awake()
+    {
+        menuCanvas = GetComponentInParent<Canvas>();
+    }
+
     void Start()
     {
         UpdatePlayerInfo();
@@ -83,19 +89,51 @@ public class ModuleSelectorUI : MonoBehaviour
             GameManager.Instance.OnModuleEnded += OnModuleEnded;
         }
     }
+
+    void Update()
+    {
+        // Toggle Module Menu on 'M' key or 'Escape'
+        if (Input.GetKeyDown(KeyCode.M) || Input.GetKeyDown(KeyCode.Escape))
+        {
+            ToggleMenu();
+        }
+    }
+
+    public void ToggleMenu()
+    {
+        bool targetState = false;
+        if (menuCanvas != null)
+        {
+            menuCanvas.enabled = !menuCanvas.enabled;
+            targetState = menuCanvas.enabled;
+        }
+        else
+        {
+            gameObject.SetActive(!gameObject.activeSelf);
+            targetState = gameObject.activeSelf;
+        }
+
+        if (targetState)
+        {
+            UpdatePlayerInfo();
+            CreateModuleButtons();
+        }
+    }
     
     void UpdatePlayerInfo()
     {
         if (GameManager.Instance != null)
         {
-            playerNameDisplay.text = $"🏏 {GameManager.Instance.PlayerName}";
-            levelDisplay.text = $"Level: {GameManager.Instance.PlayerLevel}";
-            totalSessionsDisplay.text = $"Sessions: {GameManager.Instance.TotalSessions}";
+            if (playerNameDisplay != null) playerNameDisplay.text = $"🏏 {GameManager.Instance.PlayerName}";
+            if (levelDisplay != null) levelDisplay.text = $"Level: {GameManager.Instance.PlayerLevel}";
+            if (totalSessionsDisplay != null) totalSessionsDisplay.text = $"Sessions: {GameManager.Instance.TotalSessions}";
         }
     }
     
     void CreateModuleButtons()
     {
+        if (buttonContainer == null || moduleButtonPrefab == null) return;
+
         // Clear existing
         foreach (Transform child in buttonContainer)
             Destroy(child.gameObject);
@@ -118,21 +156,7 @@ public class ModuleSelectorUI : MonoBehaviour
             if (bgImage != null)
                 bgImage.color = moduleColors[i % moduleColors.Length];
             
-            // Show stats on button
-            if (GameManager.Instance != null)
-            {
-                string key = GetModuleKey(i);
-                float avgScore = GameManager.Instance.GetAverageScore(key);
-                if (avgScore > 0)
-                {
-                    // Add score badge (optional)
-                }
-            }
-            
             btn.onClick.AddListener(() => SelectModule(index));
-            
-            // Hover effect (optional)
-            // Add hover script
         }
     }
     
@@ -145,7 +169,9 @@ public class ModuleSelectorUI : MonoBehaviour
             "DepthPerception", "SpatialAwareness", "PredictiveTiming",
             "VisualMemory"
         };
-        return keys[index];
+        if (index >= 0 && index < keys.Length)
+            return keys[index];
+        return "ReactionTime";
     }
     
     void SelectModule(int index)
@@ -159,13 +185,16 @@ public class ModuleSelectorUI : MonoBehaviour
             float avgScore = GameManager.Instance != null ? GameManager.Instance.GetAverageScore(key) : 0f;
             float avgRT = GameManager.Instance != null ? GameManager.Instance.GetAverageReactionTime(key) : 0f;
             
-            moduleInfoText.text = $"<size=36>{moduleNames[index]}</size>\n\n" +
-                                  $"{moduleDescriptions[index]}\n\n" +
-                                  $"📊 Best Score: {(avgScore > 0 ? avgScore.ToString("F0") : "Not played yet")}\n" +
-                                  $"⏱️ Avg Reaction: {(avgRT > 0 ? avgRT.ToString("F3") + "s" : "N/A")}";
+            if (moduleInfoText != null)
+            {
+                moduleInfoText.text = $"<size=36>{moduleNames[index]}</size>\n\n" +
+                                      $"{moduleDescriptions[index]}\n\n" +
+                                      $"📊 Best Score: {(avgScore > 0 ? avgScore.ToString("F0") : "Not played yet")}\n" +
+                                      $"⏱️ Avg Reaction: {(avgRT > 0 ? avgRT.ToString("F3") + "s" : "N/A")}";
+            }
         }
         
-        Debug.Log($"Selected: {moduleNames[index]}");
+        Debug.Log($"Selected Module: {moduleNames[index]}");
     }
     
     void StartSelectedModule()
@@ -175,24 +204,94 @@ public class ModuleSelectorUI : MonoBehaviour
             Debug.LogWarning("Please select a module first!");
             return;
         }
-        
+
+        string key = GetModuleKey(selectedIndex);
+        string name = moduleNames[selectedIndex];
+
+        // 1. Notify GameManager
         if (GameManager.Instance != null)
         {
             GameManager.Instance.StartModule(selectedIndex);
         }
+
+        // 2. Hide Module Menu so player can participate in the drill
+        if (moduleInfoPanel != null)
+            moduleInfoPanel.SetActive(false);
+
+        if (menuCanvas != null)
+            menuCanvas.enabled = false;
+        else
+            gameObject.SetActive(false);
+
+        // 3. Announce drill in Cricket HUD
+        if (CricketMatchManager.Instance != null)
+        {
+            CricketMatchManager.Instance.ShowMessage($"TRAINING STARTED\n{name}", Color.cyan, 3.5f);
+        }
+
+        // 4. Activate specific module logic
+        if (selectedIndex == 0) // Reaction Time & Anticipation
+        {
+            var rtModule = FindAnyObjectByType<Module1_ReactionTime>();
+            if (rtModule == null)
+            {
+                var go = new GameObject("Module1_ReactionTime");
+                rtModule = go.AddComponent<Module1_ReactionTime>();
+            }
+            rtModule.StartTrainingSession();
+        }
+        else
+        {
+            // Configure environmental bowling drill for the cognitive category
+            StartCognitiveDrill(selectedIndex, key);
+        }
         
-        // Load module scene
-        // SceneManager.LoadScene($"Module_{selectedIndex + 1}");
-        // Or activate module GameObject
-        
-        Debug.Log($"🚀 Starting Module {selectedIndex + 1}");
+        Debug.Log($"🚀 Started Module {selectedIndex + 1}: {name} (Press 'M' to reopen menu)");
     }
-    
+
+    void StartCognitiveDrill(int index, string moduleKey)
+    {
+        var bowlingManager = FindAnyObjectByType<BowlingManager>();
+        if (bowlingManager != null)
+        {
+            // Tailor the bowler to the cognitive training domain:
+            switch (moduleKey)
+            {
+                case "DepthPerception":
+                    // Yorkers and Bouncers test extreme depth
+                    bowlingManager.betweenBallsDelay = 3.5f;
+                    break;
+                case "PredictiveTiming":
+                    // High-speed deliveries test timing
+                    bowlingManager.betweenBallsDelay = 3.0f;
+                    break;
+                case "GazeTraining":
+                case "SmoothPursuit":
+                    // High spin balls test tracking moving objects
+                    bowlingManager.betweenBallsDelay = 4.0f;
+                    break;
+                default:
+                    bowlingManager.betweenBallsDelay = 3.5f;
+                    break;
+            }
+        }
+    }
+
     void OnModuleEnded(string moduleName)
     {
+        // Re-display menu upon drill completion
+        if (menuCanvas != null)
+            menuCanvas.enabled = true;
+        else
+            gameObject.SetActive(true);
+
         UpdatePlayerInfo();
-        // Refresh stats on buttons
         CreateModuleButtons();
+
+        if (CricketMatchManager.Instance != null)
+        {
+            CricketMatchManager.Instance.ShowMessage($"DRILL COMPLETED!\n{moduleName}", Color.green, 3.0f);
+        }
     }
     
     public void ShowAllStats()
@@ -213,7 +312,6 @@ public class ModuleSelectorUI : MonoBehaviour
             statsText += "\n";
         }
         
-        // Show in a popup or panel
         Debug.Log(statsText);
     }
     

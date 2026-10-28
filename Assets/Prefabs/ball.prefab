@@ -14,7 +14,6 @@ GameObject:
   - component: {fileID: 4340225500880727843}
   - component: {fileID: 4212283626264884685}
   - component: {fileID: -574664273738345333}
-  - component: {fileID: 1669015572988736674}
   m_Layer: 0
   m_Name: ball
   m_TagString: Untagged
@@ -155,21 +154,3 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BallThrower
   lifeTime: 5
---- !u!114 &1669015572988736674
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 341105148816686585}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9cd7d48cc97897f4eb911fbf6b09aa57, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::BallPhysics
-  currentDelivery: 0
-  bowlerArm: 0
-  rightHandBatsmanStumps: {fileID: 0}
-  fastSpeed: 30
-  spinSpeed: 18
-  slowerSpeed: 22

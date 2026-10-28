@@ -118,7 +118,7 @@ public class StumpsPhysics : MonoBehaviour
         {
             rb.isKinematic = false;
             bool isBail = rb.mass < 0.05f;
-            rb.velocity = dir * (isBail ? 7f : 5f) + Vector3.up * (isBail ? 4f : 2f);
+            rb.linearVelocity = dir * (isBail ? 7f : 5f) + Vector3.up * (isBail ? 4f : 2f);
             rb.angularVelocity = new Vector3(
                 Random.Range(-6f, 6f), Random.Range(-4f, 4f), Random.Range(-6f, 6f));
         }
