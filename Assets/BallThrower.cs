@@ -2,6 +2,8 @@ using UnityEngine;
 
 public class BallThrower : MonoBehaviour
 {
+    public static GameObject ActiveMatchBall { get; private set; }
+
     private Rigidbody rb;
 
     [Header("Ball Life Settings")]
@@ -17,6 +19,17 @@ public class BallThrower : MonoBehaviour
         }
     }
 
+    public static void TrackMatchBall(GameObject ball)
+    {
+        ActiveMatchBall = ball;
+    }
+
+    public static void ReleaseMatchBall(GameObject ball)
+    {
+        if (ActiveMatchBall == ball)
+            ActiveMatchBall = null;
+    }
+
     // Called ONLY on ball clone
     public void Launch(
         Vector3 startPos,
@@ -27,6 +40,8 @@ public class BallThrower : MonoBehaviour
     )
     {
         if (rb == null) return;
+
+        TrackMatchBall(gameObject);
 
         // Reset velocities
         rb.linearVelocity = Vector3.zero;
@@ -56,5 +71,10 @@ public class BallThrower : MonoBehaviour
 
         // 🔥 DESTROY ONLY THIS BALL INSTANCE
         Destroy(gameObject, lifeTime);
+    }
+
+    private void OnDestroy()
+    {
+        ReleaseMatchBall(gameObject);
     }
 }

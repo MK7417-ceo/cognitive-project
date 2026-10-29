@@ -14,6 +14,7 @@ public class BallHitPhysics : MonoBehaviour
     public enum BallState { Flying, Hit, Dead }
 
     public BallState State { get; private set; } = BallState.Flying;
+    public bool CanCallRun => State == BallState.Hit && !boundaryResolved && !outcomeRecorded;
 
     // Real-world tuning.
     const float BallMass = 0.156f;          // kg, real cricket ball
@@ -26,10 +27,24 @@ public class BallHitPhysics : MonoBehaviour
     bool boundaryResolved;
     bool hasPitched;   // first ground contact: apply delivery-type pitch behaviour
     float lifeTimer;
+    bool outcomeRecorded;
+    bool adjudicatedWide;
+
+    public BowlingManager DeliveringBowler { get; set; }
 
     void Awake()
     {
         rb = GetComponent<Rigidbody>();
+    }
+
+    void OnDestroy()
+    {
+        // A delivery or struck ball that reaches the end of its lifetime
+        // without a boundary or dismissal completes the delivery. A struck
+        // ball's original scripted object is set Dead before it is replaced.
+        if (State == BallState.Flying || State == BallState.Hit)
+            Resolve(CricketMatchManager.DeliveryResult.Dot);
+        BallThrower.ReleaseMatchBall(gameObject);
     }
 
     void OnTriggerEnter(Collider other)
@@ -165,8 +180,11 @@ public class BallHitPhysics : MonoBehaviour
     }
 
     // Called by the wicket-keeper on a catch.
-    public void MarkCaught()
+    public bool MarkCaught()
     {
+        bool caughtInAir = State == BallState.Hit && bounces == 0;
+        bool runOut = !caughtInAir && State == BallState.Hit &&
+            CricketMatchManager.Instance != null && CricketMatchManager.Instance.IsRunInProgress;
         State = BallState.Dead;
         if (rb != null)
         {
@@ -175,13 +193,21 @@ public class BallHitPhysics : MonoBehaviour
             rb.isKinematic = true;
         }
         lifeTimer = 2f;
+        Resolve(caughtInAir
+            ? CricketMatchManager.DeliveryResult.Wicket
+            : runOut
+                ? CricketMatchManager.DeliveryResult.RunOut
+                : CricketMatchManager.DeliveryResult.Dot);
+        return runOut;
     }
 
     // ---------------- BOWLED ----------------
 
     void OnBowled()
     {
+        if (State != BallState.Flying) return;
         State = BallState.Dead;
+        Resolve(CricketMatchManager.DeliveryResult.Wicket);
         Vector3 incoming = rb.linearVelocity;
 
         var stumps = FindAnyObjectByType<StumpsPhysics>();
@@ -215,6 +241,9 @@ public class BallHitPhysics : MonoBehaviour
         dir.Normalize();
 
         Debug.Log($"BallHitPhysics: HIT! bat {batSpeed:F1} m/s -> ball {exitSpeed:F1} m/s ({exitSpeed * 3.6f:F0} km/h)");
+        // Prevent this scripted delivery from being counted as a dot when it
+        // is replaced by the free-flight struck ball below.
+        State = BallState.Dead;
         SpawnHitBall(transform.position, dir * exitSpeed);
         Destroy(gameObject); // scripted ball replaced by a pure-physics ball
     }
@@ -256,9 +285,14 @@ public class BallHitPhysics : MonoBehaviour
         var mf = GetComponent<MeshFilter>();
         var mr = GetComponent<MeshRenderer>();
         var sc = GetComponent<SphereCollider>();
+        Vector3 ballScale = transform.lossyScale;
 
         var go = new GameObject("HitBall");
         go.transform.position = pos;
+        // Match the source prefab's world scale. Without this, its scaled
+        // mesh/collider become full prefab-size again after a bat strike.
+        go.transform.localScale = ballScale;
+        BallThrower.TrackMatchBall(go);
 
         if (mf != null)
         {
@@ -279,6 +313,7 @@ public class BallHitPhysics : MonoBehaviour
         nrb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
 
         var hp = go.AddComponent<BallHitPhysics>();
+        hp.DeliveringBowler = DeliveringBowler;
         hp.BeginHit(velocity);
 
         var ui = CricketMatchManager.Instance;
@@ -299,6 +334,9 @@ public class BallHitPhysics : MonoBehaviour
 
     void Update()
     {
+        if (State == BallState.Flying && !adjudicatedWide)
+            CheckForWide();
+
         if (State == BallState.Hit && !boundaryResolved)
         {
             var m = CricketMatchManager.Instance;
@@ -310,8 +348,22 @@ public class BallHitPhysics : MonoBehaviour
                 {
                     boundaryResolved = true;
                     bool six = bounces == 0;
+                    State = BallState.Dead;
+                    Resolve(six ? CricketMatchManager.DeliveryResult.BoundarySix : CricketMatchManager.DeliveryResult.BoundaryFour);
                     m.ShowMessage(six ? "SIX!" : "FOUR!", Color.yellow, 3f);
                     Debug.Log($"BallHitPhysics: {(six ? "SIX" : "FOUR")} (bounces={bounces})");
+
+                    // A boundary ends the ball's playable life. Remove it now
+                    // instead of leaving a stray ball visible for the 14s
+                    // free-flight timeout or making the next delivery wait.
+                    if (rb != null)
+                    {
+                        rb.linearVelocity = Vector3.zero;
+                        rb.angularVelocity = Vector3.zero;
+                        rb.isKinematic = true;
+                    }
+                    Destroy(gameObject);
+                    return;
                 }
             }
         }
@@ -322,4 +374,45 @@ public class BallHitPhysics : MonoBehaviour
             if (lifeTimer <= 0f) Destroy(gameObject);
         }
     }
+
+    void CheckForWide()
+    {
+        var match = CricketMatchManager.Instance;
+        var flight = GetComponent<BallFlightData>();
+        if (match == null || match.Stumps == null || flight == null) return;
+
+        Vector3 direction = flight.deliveryDirection;
+        direction.y = 0f;
+        if (direction.sqrMagnitude < 0.001f) return;
+        direction.Normalize();
+
+        Vector3 fromWicket = transform.position - match.Stumps.transform.position;
+        fromWicket.y = 0f;
+        if (Vector3.Dot(fromWicket, direction) < 0f) return;
+
+        adjudicatedWide = true;
+        Vector3 lateralOffset = fromWicket - direction * Vector3.Dot(fromWicket, direction);
+        if (lateralOffset.magnitude < 1.25f) return;
+
+        State = BallState.Dead;
+        if (rb != null)
+        {
+            rb.linearVelocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
+            rb.isKinematic = true;
+        }
+        lifeTimer = 1.5f;
+        Resolve(CricketMatchManager.DeliveryResult.Wide);
+        match.ShowMessage("WIDE BALL", Color.yellow);
+        Debug.Log("BallHitPhysics: wide ball called outside the wicket line.");
+    }
+
+    void Resolve(CricketMatchManager.DeliveryResult result)
+    {
+        if (outcomeRecorded) return;
+        outcomeRecorded = true;
+        if (CricketMatchManager.Instance != null)
+            CricketMatchManager.Instance.ResolveDelivery(this, result);
+    }
+
 }

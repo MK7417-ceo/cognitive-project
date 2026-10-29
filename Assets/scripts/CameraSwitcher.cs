@@ -167,9 +167,11 @@ public class CameraSwitcher : MonoBehaviour
 
         Vector3 lateralDir = Vector3.Cross(Vector3.up, pitchDir).normalized;
 
-        if (stadiumCameras == null || stadiumCameras.Length != 9)
+        // The scene may contain extra cameras beyond the nine switchable
+        // views. Keep their references so ActivateCamera can disable them.
+        if (stadiumCameras == null || stadiumCameras.Length < 9)
         {
-            stadiumCameras = new Camera[9];
+            System.Array.Resize(ref stadiumCameras, 9);
         }
 
         // Assign or Build Camera 0: Main Batsman POV
