@@ -15,15 +15,22 @@ using UnityEngine.UI;
 ///   Bowl trigger has already fired.
 /// - Flow: Auth panel -> Lobby panel -> Match / Nets / Training info /
 ///   How to Play. Sign Out returns to the Auth panel.
-/// - The lobby is a WorldSpace panel inside a simple primitive Pavilion
-///   shell (floor, back wall, side walls, lockers, bench) built from
-///   cubes — no external models, no scene edits needed. The shell is a
-///   functional stand-in for the preview's dressing room: it gives the
-///   player a room to stand in, and it hides when the match starts so it
-///   never blocks the pitch. A real art pass (proper pavilion models)
-///   can replace the shell later without touching the auth/mode logic:
-///   set buildPavilionShell = false and parent this canvas under a real
-///   room, via pavilionAnchor if you assign one.
+/// - The lobby is a WorldSpace panel inside a preview-matched Pavilion
+///   dressing room built ONLY from code primitives and code-made
+///   materials — no external models, no scene edits needed. It matches
+///   the approved preview (Option A): kit wall with detailed lockers on
+///   the left, a glass wall with a floodlit stadium behind it in front,
+///   a sofa and team-talk board on the right and left walls, a wooden
+///   floor and bench in the middle, and ceiling lights. It hides when
+///   the match starts so it never blocks the pitch. A real art pass
+///   (proper pavilion models) can replace the shell later without
+///   touching the auth/mode logic: set buildPavilionShell = false and
+///   parent this canvas under a real room, via pavilionAnchor if you
+///   assign one. The physical lockers, door and board are visual
+///   anchors only — the panel buttons are still the controls, because
+///   VR ray clicks need XR controller interactors in the scene (open
+///   editor step, see README). Do not claim the lockers or door are
+///   clickable until those interactors exist and are Play-tested.
 /// - "Return to Lobby" from a match is a PAUSE, not a reset: it sets
 ///   Time.timeScale = 0 and shows the lobby again. Deactivating the
 ///   bowlers mid-match would strand BowlingManager's private
@@ -270,7 +277,7 @@ public class VRLobbyManager : MonoBehaviour
         canvasGo.AddComponent<GraphicRaycaster>();
 
         // Backdrop panel so text is readable against the stadium.
-        MakePanel(canvasGo.transform, "Backdrop", new Color(0.05f, 0.08f, 0.1f, 0.92f),
+        MakePanel(canvasGo.transform, "Backdrop", new Color(0.05f, 0.23f, 0.18f, 0.92f),
             new Vector2(0f, 0f), new Vector2(1150f, 700f));
 
         authPanel = MakePanel(canvasGo.transform, "AuthPanel", new Color(0f, 0f, 0f, 0f),
@@ -376,32 +383,143 @@ public class VRLobbyManager : MonoBehaviour
 
     private void BuildPavilionShell()
     {
-        // Primitive room, centred on the root (player at origin, facing +Z
-        // in root space). Panel sits at z = 1.6, back wall just behind it.
-        MakeBox("PavilionFloor", new Vector3(0f, 0.02f, 1f), new Vector3(9f, 0.1f, 5f), new Color(0.15f, 0.35f, 0.15f));
-        MakeBox("PavilionBackWall", new Vector3(0f, 1.5f, 2.1f), new Vector3(9f, 3f, 0.2f), new Color(0.45f, 0.32f, 0.2f));
-        MakeBox("PavilionLeftWall", new Vector3(-4.4f, 1.5f, 0.5f), new Vector3(0.2f, 3f, 4.5f), new Color(0.35f, 0.25f, 0.16f));
-        MakeBox("PavilionRightWall", new Vector3(4.4f, 1.5f, 0.5f), new Vector3(0.2f, 3f, 4.5f), new Color(0.35f, 0.25f, 0.16f));
-        MakeBox("Locker1", new Vector3(-2.8f, 1f, 1.85f), new Vector3(0.9f, 2f, 0.5f), new Color(0.2f, 0.25f, 0.35f));
-        MakeBox("Locker2", new Vector3(-1.8f, 1f, 1.85f), new Vector3(0.9f, 2f, 0.5f), new Color(0.25f, 0.3f, 0.4f));
-        MakeBox("Locker3", new Vector3(2.8f, 1f, 1.85f), new Vector3(0.9f, 2f, 0.5f), new Color(0.2f, 0.25f, 0.35f));
-        MakeBox("PavilionBench", new Vector3(0f, 0.3f, 1.5f), new Vector3(2.5f, 0.5f, 0.6f), new Color(0.5f, 0.36f, 0.22f));
+        // Preview-matched dressing room, in root space: player at the
+        // origin, facing +Z. Panel sits at z = 1.6, so the glass wall at
+        // z = 2.6 sits behind the panel, and the stadium behind the glass.
+        // Everything here is a code primitive — no model files are needed.
+        // Colours use the deck/preview palette: stadium green, wood brown,
+        // cream, amber, deep red sofa. All objects are children of
+        // lobbyRoot, so they hide with the lobby when a match starts.
+
+        // Room: wooden floor, ceiling, side walls.
+        MakeBox("PavilionFloor", new Vector3(0f, 0.02f, 1.5f), new Vector3(10f, 0.1f, 6f), new Color(0.42f, 0.28f, 0.16f));
+        MakeBox("PavilionCeiling", new Vector3(0f, 3.25f, 1.5f), new Vector3(10f, 0.1f, 6f), new Color(0.20f, 0.18f, 0.16f));
+        MakeBox("PavilionLeftWall", new Vector3(-4.9f, 1.6f, 1.5f), new Vector3(0.2f, 3.2f, 6f), new Color(0.23f, 0.32f, 0.26f));
+        MakeBox("PavilionRightWall", new Vector3(4.9f, 1.6f, 1.5f), new Vector3(0.2f, 3.2f, 6f), new Color(0.23f, 0.32f, 0.26f));
+
+        // Glass wall in front of the player: frame, transparent pane,
+        // and an amber door frame in the middle marking the walk-out door.
+        MakeBox("GlassPillarLeft", new Vector3(-2.2f, 1.6f, 2.6f), new Vector3(0.25f, 3.2f, 0.25f), new Color(0.30f, 0.20f, 0.12f));
+        MakeBox("GlassPillarRight", new Vector3(2.2f, 1.6f, 2.6f), new Vector3(0.25f, 3.2f, 0.25f), new Color(0.30f, 0.20f, 0.12f));
+        MakeBox("GlassBeamTop", new Vector3(0f, 3.15f, 2.6f), new Vector3(4.65f, 0.25f, 0.25f), new Color(0.30f, 0.20f, 0.12f));
+        MakeBox("GlassSill", new Vector3(0f, 0.1f, 2.6f), new Vector3(4.65f, 0.2f, 0.25f), new Color(0.30f, 0.20f, 0.12f));
+        MakeGlass("GlassPane", new Vector3(0f, 1.6f, 2.6f), new Vector3(4.15f, 2.9f, 0.05f));
+        MakeBox("WalkOutDoorLeft", new Vector3(-0.55f, 1.6f, 2.55f), new Vector3(0.12f, 2.9f, 0.12f), new Color(0.91f, 0.64f, 0.09f));
+        MakeBox("WalkOutDoorRight", new Vector3(0.55f, 1.6f, 2.55f), new Vector3(0.12f, 2.9f, 0.12f), new Color(0.91f, 0.64f, 0.09f));
+        MakeBox("WalkOutDoorHandle", new Vector3(0.35f, 1.1f, 2.52f), new Vector3(0.08f, 0.3f, 0.08f), new Color(0.91f, 0.64f, 0.09f));
+
+        // Stadium behind the glass: green field, cream pitch strip,
+        // and two floodlight poles with glowing heads.
+        MakeBox("StadiumField", new Vector3(0f, 0.05f, 6.5f), new Vector3(24f, 0.1f, 8f), new Color(0.10f, 0.38f, 0.20f));
+        MakeBox("StadiumPitch", new Vector3(0f, 0.12f, 6.5f), new Vector3(2.2f, 0.05f, 6f), new Color(0.85f, 0.78f, 0.55f));
+        MakeFloodlight("FloodlightLeft", -5f);
+        MakeFloodlight("FloodlightRight", 5f);
+
+        // Kit wall on the left: two detailed lockers (body, door, handle).
+        MakeLocker("Locker1", -3.6f, new Color(0.30f, 0.35f, 0.45f));
+        MakeLocker("Locker2", -2.6f, new Color(0.35f, 0.40f, 0.50f));
+        MakeBox("KitBag", new Vector3(-1.6f, 0.22f, 0.9f), new Vector3(0.9f, 0.35f, 0.4f), new Color(0.15f, 0.15f, 0.18f));
+        MakeBox("KitBagStrap", new Vector3(-1.6f, 0.42f, 0.9f), new Vector3(0.7f, 0.06f, 0.3f), new Color(0.91f, 0.64f, 0.09f));
+
+        // Sofa on the right, team-talk board on the left wall.
+        MakeBox("SofaBase", new Vector3(3.2f, 0.35f, 2.0f), new Vector3(1.9f, 0.5f, 0.9f), new Color(0.55f, 0.15f, 0.15f));
+        MakeBox("SofaBack", new Vector3(3.2f, 0.85f, 2.35f), new Vector3(1.9f, 0.7f, 0.25f), new Color(0.55f, 0.15f, 0.15f));
+        MakeBox("SofaArmLeft", new Vector3(2.35f, 0.65f, 2.0f), new Vector3(0.25f, 0.6f, 0.9f), new Color(0.55f, 0.15f, 0.15f));
+        MakeBox("SofaArmRight", new Vector3(4.05f, 0.65f, 2.0f), new Vector3(0.25f, 0.6f, 0.9f), new Color(0.55f, 0.15f, 0.15f));
+        MakeBox("SofaCushionLeft", new Vector3(2.9f, 0.65f, 1.95f), new Vector3(0.55f, 0.15f, 0.7f), new Color(0.65f, 0.25f, 0.25f));
+        MakeBox("SofaCushionRight", new Vector3(3.5f, 0.65f, 1.95f), new Vector3(0.55f, 0.15f, 0.7f), new Color(0.65f, 0.25f, 0.25f));
+        MakeBox("TeamTalkBoard", new Vector3(-4.75f, 1.7f, 0.5f), new Vector3(0.08f, 1.3f, 2.0f), new Color(0.10f, 0.25f, 0.18f));
+        MakeBox("TeamTalkBoardHeader", new Vector3(-4.75f, 2.4f, 0.5f), new Vector3(0.1f, 0.15f, 2.0f), new Color(0.91f, 0.64f, 0.09f));
+
+        // Bench in the middle, below panel height so it never blocks it.
+        MakeBox("PavilionBenchTop", new Vector3(0f, 0.48f, 1.0f), new Vector3(2.2f, 0.08f, 0.5f), new Color(0.50f, 0.36f, 0.22f));
+        MakeBox("PavilionBenchLegLeft", new Vector3(-0.9f, 0.24f, 1.0f), new Vector3(0.12f, 0.48f, 0.45f), new Color(0.30f, 0.20f, 0.12f));
+        MakeBox("PavilionBenchLegRight", new Vector3(0.9f, 0.24f, 1.0f), new Vector3(0.12f, 0.48f, 0.45f), new Color(0.30f, 0.20f, 0.12f));
+
+        // Ceiling lights: glowing strips plus two real point lights
+        // (no shadows, low count, so VR performance stays safe).
+        MakeEmissiveBox("CeilingLightLeft", new Vector3(-2f, 3.18f, 1.5f), new Vector3(1.0f, 0.06f, 0.3f));
+        MakeEmissiveBox("CeilingLightRight", new Vector3(2f, 3.18f, 1.5f), new Vector3(1.0f, 0.06f, 0.3f));
+        MakePointLight("PavilionLightLeft", new Vector3(-2f, 2.8f, 1.5f));
+        MakePointLight("PavilionLightRight", new Vector3(2f, 2.8f, 1.5f));
+    }
+
+    private void MakeLocker(string name, float x, Color bodyColor)
+    {
+        MakeBox(name, new Vector3(x, 1.0f, 2.2f), new Vector3(0.9f, 2f, 0.55f), bodyColor);
+        MakeBox(name + "Door", new Vector3(x, 1.0f, 1.91f), new Vector3(0.7f, 1.7f, 0.05f), new Color(0.45f, 0.50f, 0.60f));
+        MakeBox(name + "Handle", new Vector3(x + 0.25f, 1.0f, 1.87f), new Vector3(0.06f, 0.25f, 0.06f), new Color(0.91f, 0.64f, 0.09f));
+    }
+
+    private void MakeFloodlight(string name, float x)
+    {
+        MakeCylinder(name + "Pole", new Vector3(x, 2.0f, 5.5f), new Vector3(0.25f, 4f, 0.25f), new Color(0.25f, 0.25f, 0.25f));
+        MakeEmissiveBox(name + "Head", new Vector3(x, 4.1f, 5.5f), new Vector3(0.9f, 0.6f, 0.2f));
     }
 
     private void MakeBox(string name, Vector3 localPos, Vector3 size, Color color)
     {
-        var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        MakePrimitive(name, PrimitiveType.Cube, localPos, size, color, false, 0f);
+    }
+
+    private void MakeGlass(string name, Vector3 localPos, Vector3 size)
+    {
+        MakePrimitive(name, PrimitiveType.Cube, localPos, size, new Color(0.65f, 0.80f, 0.85f, 0.25f), true, 0f);
+    }
+
+    private void MakeEmissiveBox(string name, Vector3 localPos, Vector3 size)
+    {
+        MakePrimitive(name, PrimitiveType.Cube, localPos, size, new Color(1f, 0.95f, 0.7f), false, 2f);
+    }
+
+    private void MakeCylinder(string name, Vector3 localPos, Vector3 size, Color color)
+    {
+        MakePrimitive(name, PrimitiveType.Cylinder, localPos, size, color, false, 0f);
+    }
+
+    private void MakePointLight(string name, Vector3 localPos)
+    {
+        var go = new GameObject(name);
+        go.transform.SetParent(lobbyRoot.transform, false);
+        go.transform.localPosition = localPos;
+        var light = go.AddComponent<Light>();
+        light.type = LightType.Point;
+        light.color = new Color(1f, 0.95f, 0.8f);
+        light.intensity = 0.7f;
+        light.range = 9f;
+        light.shadows = LightShadows.None;
+    }
+
+    private void MakePrimitive(string name, PrimitiveType type, Vector3 localPos, Vector3 size, Color color, bool transparent, float emissiveIntensity)
+    {
+        var go = GameObject.CreatePrimitive(type);
         go.name = name;
         go.transform.SetParent(lobbyRoot.transform, false);
         go.transform.localPosition = localPos;
         go.transform.localScale = size;
         var renderer = go.GetComponent<Renderer>();
-        if (renderer != null)
+        if (renderer == null) return;
+        Shader shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+        if (shader == null) return;
+        var material = new Material(shader);
+        material.color = color;
+        if (transparent)
         {
-            Shader shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
-            if (shader != null) renderer.material = new Material(shader);
-            renderer.material.color = color;
+            // URP transparent surface, Standard transparent mode as fallback.
+            if (material.HasProperty("_Surface")) material.SetFloat("_Surface", 1f);
+            if (material.HasProperty("_Blend")) material.SetFloat("_Blend", 0f);
+            if (material.HasProperty("_Mode")) material.SetFloat("_Mode", 3f);
+            if (material.HasProperty("_SrcBlend")) material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            if (material.HasProperty("_DstBlend")) material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            if (material.HasProperty("_ZWrite")) material.SetFloat("_ZWrite", 0f);
+            material.renderQueue = 3000;
         }
+        if (emissiveIntensity > 0f && material.HasProperty("_EmissionColor"))
+        {
+            material.EnableKeyword("_EMISSION");
+            material.SetColor("_EmissionColor", new Color(1f, 0.95f, 0.7f) * emissiveIntensity);
+        }
+        renderer.material = material;
     }
 
     // ---------- Small UI helpers (legacy UI.Text, like CricketMatchManager) ----------

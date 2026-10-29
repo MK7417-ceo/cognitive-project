@@ -9,12 +9,21 @@ branch. The user (or a collaborator) merges after a Play test.
 | File | What it does |
 |---|---|
 | `Assets/scripts/Auth/PlayerAuthManager.cs` | Local profiles: create / sign in with name + 4-digit PIN (SHA-256 hash only, never plain text), Guest mode, save to `persistentDataPath/vr_cricket_profiles.json` (separate from GameManager's save). Syncs `GameManager.PlayerName` when a GameManager exists. |
-| `Assets/scripts/Lobby/VRLobbyManager.cs` | Auth panel -> Pavilion lobby panel -> Match / Nets / Training info / How to Play. Builds a WorldSpace canvas + primitive pavilion shell (floor, walls, lockers, bench) at runtime. No scene edits needed. |
+| `Assets/scripts/Lobby/VRLobbyManager.cs` | Auth panel -> Pavilion lobby panel -> Match / Nets / Training info / How to Play. Builds a WorldSpace canvas + a preview-matched pavilion dressing room at runtime (glass wall + floodlit stadium backdrop, detailed lockers, sofa, team-talk board, wooden floor, bench, ceiling lights). Still code primitives only — no model files, no scene edits needed. |
 | `Assets/scripts/Lobby/AuthLobbyBootstrap.cs` | Auto-creates the lobby on scene load (same pattern as `CricketMatchBootstrap`). If you place `VRLobbyManager` in the scene by hand, the bootstrap does nothing. |
 
 Lobby choice used: **Option A — Pavilion** (the recommended option from the
 UI preview). Modes are labelled as places: "Walk Out: Match vs AI Bowler",
 "Go to Nets: Practice", "Training Room", "How to Play", "Sign Out".
+
+## Upgrade note (Oct 29, after user feedback)
+
+The first version of this PR used a plain cube shell (floor, walls,
+lockers, bench). The user pointed out that the preview showed a much
+richer pavilion, so the shell was upgraded to match the preview
+layout with code primitives only: glass wall, stadium backdrop,
+floodlights, detailed lockers, sofa, team-talk board, wooden floor
+and ceiling lights. No external models were added.
 
 ## How to test (Unity 6000.6.6f1, pull the PR branch, open SampleScene, Play)
 
@@ -45,9 +54,13 @@ UI preview). Modes are labelled as places: "Walk Out: Match vs AI Bowler",
 - **VR button clicks:** buttons need XR controller interactors in the
   scene (still an open editor step from the Oct 29 audit). On PC,
   mouse clicks work via the existing EventSystem.
-- **Pavilion art:** the shell is primitive cubes, not a finished
-  dressing room. It proves the flow and the room position; a real art
-  pass can replace it by setting `buildPavilionShell = false` on
+- **Pavilion art:** the shell is code primitives only (glass pane,
+  floodlights, lockers, sofa, board, bench, lights) — it matches the
+  preview layout, but it is not a finished 3D art pass with real
+  pavilion models. The lockers, glass door and board are visual
+  anchors, not clickable objects: the panel buttons are the controls
+  until XR controller interactors exist in the scene. A real art pass
+  can replace the shell by setting `buildPavilionShell = false` on
   `VRLobbyManager` and parenting the canvas under a real room
   (`pavilionAnchor`).
 - **Match vs Nets:** both start the same bowling loop and physics today.
