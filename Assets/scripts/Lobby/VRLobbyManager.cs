@@ -117,6 +117,11 @@ public class VRLobbyManager : MonoBehaviour
     private GameObject signInPanel;
     private GameObject newPlayerPanel;
     private List<BowlingManager> bowlers = new List<BowlingManager>();
+    // User-selected match setup (pavilion, chosen before Start).
+    // Default: 5 overs, right-arm bowler - the previous match default.
+    private int selectedOvers = 5;
+    private bool selectedLeftArm = false;
+    private Text selectionText;
     private bool bowlersWereActive;
 
     // Player-rig teleport state: lobby lives at the boundary, the match
@@ -201,6 +206,12 @@ public class VRLobbyManager : MonoBehaviour
         CollectBowlers();
         Time.timeScale = 1f;
         RestorePlayerRigToMatch();
+        // Apply pavilion selections, BEFORE bowlers start.
+        if (isMatch && CricketMatchManager.Instance != null)
+            CricketMatchManager.Instance.oversPerInnings = Mathf.Max(1, selectedOvers);
+        BowlerType[] armOrder = selectedLeftArm
+            ? new BowlerType[] { BowlerType.LeftArmFast, BowlerType.LeftArmMediumFast, BowlerType.LeftArmOrthodoxSpin, BowlerType.LeftArmWristSpin }
+            : new BowlerType[] { BowlerType.RightArmFast, BowlerType.RightArmMediumFast, BowlerType.RightArmOffSpin, BowlerType.RightArmLegSpin };
         // FLOW: bowler was visible but gated. Re-enable scripts only;
         // do NOT call BeginRunUp here - RunUpController.Start has not
         // run yet for a gated bowler, so its start position is not
@@ -209,15 +220,17 @@ public class VRLobbyManager : MonoBehaviour
         foreach (var b in bowlers)
         {
             if (b == null) continue;
+            b.bowlerOrder = armOrder;
             b.enabled = true;
             var runUp = b.GetComponent<RunUpController>();
             if (runUp != null) runUp.enabled = true;
         }
         if (isMatch && auth != null) auth.RecordSession();
-        // Real-world rule: the pavilion BUILDING stays visible during a
-        // match. Only the lobby panel hides. Hiding lobbyRoot used to
-        // make the whole building vanish when play started.
+        // USER RULE (Oct 30): on Start, the pavilion DISAPPEARS and the
+        // VR player stands at the batsman side to play. This supersedes
+        // the earlier building-stays rule.
         if (lobbyCanvas != null) lobbyCanvas.gameObject.SetActive(false);
+        if (lobbyRoot != null) lobbyRoot.SetActive(false);
         State = LobbyState.Match;
     }
 
@@ -240,8 +253,9 @@ public class VRLobbyManager : MonoBehaviour
     {
         Time.timeScale = 1f;
         RestorePlayerRigToMatch();
-        // See StartBowling: building stays, only the panel hides.
+        // Same as Start: pavilion disappears, player is at batsman side.
         if (lobbyCanvas != null) lobbyCanvas.gameObject.SetActive(false);
+        if (lobbyRoot != null) lobbyRoot.SetActive(false);
         State = LobbyState.Match;
     }
 
@@ -514,44 +528,54 @@ public class VRLobbyManager : MonoBehaviour
 
     private void BuildLobbyPanel()
     {
-        MakeText(lobbyPanel.transform, "PAVILION  •  DRESSING ROOM", 40, new Vector2(0f, 270f), TextAnchor.MiddleCenter, Color.yellow);
+        MakeText(lobbyPanel.transform, "PAVILION  \u2022  DRESSING ROOM", 40, new Vector2(0f, 270f), TextAnchor.MiddleCenter, Color.yellow);
         lobbyWelcomeText = MakeText(lobbyPanel.transform, "Welcome", 34, new Vector2(0f, 215f), TextAnchor.MiddleCenter, Color.white);
         lobbyProfileText = MakeText(lobbyPanel.transform, "", 24, new Vector2(0f, 175f), TextAnchor.MiddleCenter, new Color(0.8f, 0.8f, 0.8f));
-
-        // Modes are labelled as places, so the lobby feels like a room,
-        // not a flat menu — matching the approved UI preview (Option A).
-        MakeButton(lobbyPanel.transform, "Walk Out: Match vs AI Bowler", new Vector2(0f, 95f), new Vector2(640f, 70f),
+        selectionText = MakeText(lobbyPanel.transform, "", 24, new Vector2(0f, 140f), TextAnchor.MiddleCenter, Color.yellow);
+        UpdateSelectionText();
+        MakeButton(lobbyPanel.transform, "1 Over", new Vector2(-260f, 100f), new Vector2(180f, 60f), () => SetOvers(1));
+        MakeButton(lobbyPanel.transform, "2 Overs", new Vector2(0f, 100f), new Vector2(180f, 60f), () => SetOvers(2));
+        MakeButton(lobbyPanel.transform, "5 Overs", new Vector2(260f, 100f), new Vector2(180f, 60f), () => SetOvers(5));
+        MakeText(lobbyPanel.transform, "Bowler Arm", 24, new Vector2(0f, 55f), TextAnchor.MiddleCenter, Color.white);
+        MakeButton(lobbyPanel.transform, "Right Arm", new Vector2(-170f, 15f), new Vector2(300f, 60f), () => SetArm(false));
+        MakeButton(lobbyPanel.transform, "Left Arm", new Vector2(170f, 15f), new Vector2(300f, 60f), () => SetArm(true));
+        MakeButton(lobbyPanel.transform, "Start: Match vs AI Bowler", new Vector2(0f, -65f), new Vector2(640f, 70f),
             () => StartBowling(true));
-        MakeButton(lobbyPanel.transform, "Go to Nets: Practice", new Vector2(0f, 10f), new Vector2(640f, 70f),
+        MakeButton(lobbyPanel.transform, "Go to Nets: Practice", new Vector2(0f, -140f), new Vector2(640f, 70f),
             () => StartBowling(false));
-        MakeButton(lobbyPanel.transform, "Training Room", new Vector2(-170f, -75f), new Vector2(300f, 70f), () =>
+        MakeButton(lobbyPanel.transform, "Training Room", new Vector2(-170f, -215f), new Vector2(300f, 60f), () =>
         {
-            ShowInfo("Training Room\n\n"
-                + "Cognitive training modules are not in SampleScene yet.\n"
-                + "ModuleSelectorUI exists in code, but no scene object uses it.\n\n"
-                + "To enable this button for real, add a GameObject with\n"
-                + "ModuleSelectorUI + a Canvas + button prefab in the Unity\n"
-                + "Editor, then point this button at it. Until then this\n"
-                + "button will not pretend training has started.");
+            ShowInfo("Training Room\n\nCognitive training modules are not in SampleScene yet.");
         });
-        MakeButton(lobbyPanel.transform, "How to Play", new Vector2(170f, -75f), new Vector2(300f, 70f), () =>
+        MakeButton(lobbyPanel.transform, "How to Play", new Vector2(170f, -215f), new Vector2(300f, 60f), () =>
         {
-            ShowInfo("How to Play\n\n"
-                + "• Grab the bat with your controller and swing.\n"
-                + "• Keys 1-9 switch camera. Esc returns to this lobby (pause).\n"
-                + "• The bowler waits until the last ball is dead or past\n"
-                + "  the boundary — a hit ball never vanishes mid-flight.\n"
-                + "• In VR, use Guest if you do not want to type a PIN.");
+            ShowInfo("How to Play\n\n\u2022 Grab the bat with your controller and swing.\n\u2022 Keys 1-9 switch camera. Esc returns to this lobby (pause).\n\u2022 In VR, use Guest if you do not want to type a PIN.");
         });
-        MakeButton(lobbyPanel.transform, "Sign Out", new Vector2(0f, -170f), new Vector2(300f, 70f), () =>
+        MakeButton(lobbyPanel.transform, "Sign Out", new Vector2(0f, -290f), new Vector2(300f, 60f), () =>
         {
-            // If returning from a paused match, unpause first so the
-            // auth screen is not frozen behind a paused game.
             Time.timeScale = 1f;
             auth.SignOut();
         });
         MakeText(lobbyPanel.transform, "Esc during a match returns here (pause).",
-            20, new Vector2(0f, -240f), TextAnchor.MiddleCenter, new Color(0.8f, 0.8f, 0.8f));
+            20, new Vector2(0f, -335f), TextAnchor.MiddleCenter, new Color(0.8f, 0.8f, 0.8f));
+    }
+
+    private void SetOvers(int overs)
+    {
+        selectedOvers = Mathf.Max(1, overs);
+        UpdateSelectionText();
+    }
+
+    private void SetArm(bool leftArm)
+    {
+        selectedLeftArm = leftArm;
+        UpdateSelectionText();
+    }
+
+    private void UpdateSelectionText()
+    {
+        if (selectionText != null)
+            selectionText.text = "Match: " + selectedOvers + " overs  \u2022  Bowler: " + (selectedLeftArm ? "Left Arm" : "Right Arm");
     }
 
     private void BuildInfoPanel()
