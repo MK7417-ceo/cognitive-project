@@ -22,4 +22,5 @@ public class BallFlightData : MonoBehaviour
     public SpinKind spinKind = SpinKind.Fast;
     public string variationName = "";
     public bool isLeftArm = false;
+    [HideInInspector] public Vector3 deliveryDirection;
 }

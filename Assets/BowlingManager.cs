@@ -78,16 +78,53 @@ public class BowlingManager : MonoBehaviour
             return;
         }
 
+        if (ballPrefab == null || ballPrefab.GetComponent<BallThrower>() == null ||
+            ballPrefab.GetComponent<Rigidbody>() == null)
+        {
+            Debug.LogError("BowlingManager: ballPrefab must have BallThrower and Rigidbody on its root.");
+            enabled = false;
+            return;
+        }
+
+        if (variations == null || variations.Count == 0 ||
+            variations.Exists(v => v == null || v.targetPoint == null || v.timeToTarget <= 0.01f))
+        {
+            Debug.LogError("BowlingManager: assign a target point and positive time to every ball variation.");
+            enabled = false;
+            return;
+        }
+
         runUpStartPos = transform.position;
         runUpStartRot = transform.rotation;
 
         currentBowler = bowlerOrder[bowlerIndex];
-        ApplyBowlerType();
         UpdateBowlingStyleUI();
+
+        var runUp = GetComponent<RunUpController>();
+        // Resolve the delivery hand before any animation event can fire. The
+        // initial run-up can emit a stale release event on some imported rigs.
+        ConfigureBowlerType(false);
+        if (runUp != null)
+        {
+            runUp.RunUpReachedCrease += ApplyBowlerType;
+            if (!runUp.isRunning) ApplyBowlerType();
+        }
+        else
+        {
+            ApplyBowlerType();
+        }
     }
 
     void ApplyBowlerType()
     {
+        ConfigureBowlerType(true);
+    }
+
+    void ConfigureBowlerType(bool playBowlingAnimation)
+    {
+        if (CricketMatchManager.Instance != null && CricketMatchManager.Instance.InningsComplete)
+            return;
+
         // LEFT / RIGHT ARM
         isLeftArm =
             currentBowler == BowlerType.LeftArmFast ||
@@ -106,7 +143,7 @@ public class BowlingManager : MonoBehaviour
         activeSpawn = isLeftArm ? leftHandSpawn : rightHandSpawn;
 
         // ONLY ONE ANIMATOR TRIGGER
-        if (animator != null)
+        if (playBowlingAnimation && animator != null)
         {
             animator.ResetTrigger("Bowl");
             animator.SetTrigger("Bowl");
@@ -128,6 +165,27 @@ public class BowlingManager : MonoBehaviour
     // ANIMATION EVENT
     public void OnBallRelease()
     {
+        // A delivery animation may already be playing when the innings ends.
+        // Do not emit a ball from its late animation event.
+        if (CricketMatchManager.Instance != null && CricketMatchManager.Instance.InningsComplete)
+            return;
+
+        // Ignore a release event from an animation that fired before the
+        // bowler reached the crease. RunUpReachedCrease starts a fresh bowl.
+        var runUp = GetComponent<RunUpController>();
+        if (runUp != null && runUp.isRunning) return;
+
+        // Animation events can fire more than once while a delivery cycle is active.
+        if (waitingForNextBall) return;
+
+        // Another bowler or a leftover ball already owns the field. Queue the
+        // normal delivery cycle instead of creating a second live ball.
+        if (BallThrower.ActiveMatchBall != null)
+        {
+            StartCoroutine(NextBallRoutine());
+            return;
+        }
+
         if (ballPrefab == null)
         {
             Debug.LogError("BowlingManager: ballPrefab is not assigned.");
@@ -141,9 +199,9 @@ public class BowlingManager : MonoBehaviour
         }
 
         BallVariation v = PickVariation();
-        if (v == null)
+        if (v == null || v.targetPoint == null || v.timeToTarget <= 0.01f)
         {
-            Debug.LogWarning("BowlingManager: no ball variations available.");
+            Debug.LogError("BowlingManager: selected ball variation is incomplete.");
             return;
         }
 
@@ -161,11 +219,18 @@ public class BowlingManager : MonoBehaviour
         flight.isLeftArm = isLeftArm;
         flight.variationName = v.name;
         flight.spinKind = ClassifySpin(currentBowler, v.name);
+        flight.deliveryDirection = (v.targetPoint.position - activeSpawn.position).normalized;
+
+        BallHitPhysics ballPhysics = ball.GetComponent<BallHitPhysics>();
+        if (ballPhysics == null)
+            ballPhysics = ball.AddComponent<BallHitPhysics>();
+        ballPhysics.DeliveringBowler = this;
 
         BallThrower ballThrower = ball.GetComponent<BallThrower>();
         if (ballThrower == null)
         {
             Debug.LogError("BowlingManager: BallThrower component is missing on the ball prefab.");
+            Destroy(ball);
             return;
         }
 
@@ -201,21 +266,49 @@ public class BowlingManager : MonoBehaviour
 
     void OnBallDelivered()
     {
-        ballCount++;
-
-        if (ballCount >= ballsPerOver)
-        {
-            ballCount = 0;
-            bowlerIndex = (bowlerIndex + 1) % bowlerOrder.Length;
-            currentBowler = bowlerOrder[bowlerIndex];
-            UpdateBowlingStyleUI();
-        }
-
         // Real rhythm: pause, walk back to the run-up start, THEN bowl again.
         // (Previously the trigger re-fired instantly, so the bowler bowled
         // nonstop and the run-up broke after a few balls.)
         if (!waitingForNextBall)
             StartCoroutine(NextBallRoutine());
+    }
+
+    /// <summary>Count a legal delivery, not a wide/no-ball attempt.</summary>
+    public void RecordLegalBall()
+    {
+        ballCount++;
+        if (ballCount < Mathf.Max(1, ballsPerOver)) return;
+
+        ballCount = 0;
+        if (bowlerOrder != null && bowlerOrder.Length > 0)
+        {
+            bowlerIndex = (bowlerIndex + 1) % bowlerOrder.Length;
+            currentBowler = bowlerOrder[bowlerIndex];
+            UpdateBowlingStyleUI();
+        }
+    }
+
+    /// <summary>Reset this bowler's over state and begin a fresh innings run-up.</summary>
+    public void BeginNewInnings()
+    {
+        if (bowlerOrder == null || bowlerOrder.Length == 0) return;
+
+        ballCount = 0;
+        bowlerIndex = 0;
+        currentBowler = bowlerOrder[bowlerIndex];
+        waitingForNextBall = false;
+        UpdateBowlingStyleUI();
+        ConfigureBowlerType(false);
+
+        var runUp = GetComponent<RunUpController>();
+        if (runUp != null)
+            runUp.BeginRunUp();
+        else
+        {
+            transform.position = runUpStartPos;
+            transform.rotation = runUpStartRot;
+            ApplyBowlerType();
+        }
     }
 
     IEnumerator NextBallRoutine()
@@ -224,7 +317,7 @@ public class BowlingManager : MonoBehaviour
 
         yield return new WaitForSeconds(betweenBallsDelay);
 
-        // Phase 1 / bowler-timing fix: do NOT bowl the next delivery while
+// Phase 1 / bowler-timing fix: do NOT bowl the next delivery while
         // the current ball is still live. Real cricket waits for the ball
         // to be dead, caught, bowled, or to cross the boundary. The old
         // fixed-delay-only logic, combined with BallThrower's 5 s destroy,
@@ -233,32 +326,38 @@ public class BowlingManager : MonoBehaviour
         float waited = 0f;
         while (waited < 30f)
         {
-            bool anyLive = false;
-            foreach (var hp in FindObjectsByType<BallHitPhysics>(FindObjectsInactive.Exclude))
+            if (BallThrower.ActiveMatchBall == null)
             {
-                if (hp.State == BallHitPhysics.BallState.Flying) anyLive = true;
-                else if (hp.State == BallHitPhysics.BallState.Hit && !hp.IsBoundaryResolved) anyLive = true;
+                bool anyLive = false;
+                foreach (var hp in FindObjectsByType<BallHitPhysics>(FindObjectsInactive.Exclude))
+                {
+                    if (hp.State == BallHitPhysics.BallState.Flying) anyLive = true;
+                    else if (hp.State == BallHitPhysics.BallState.Hit && !hp.IsBoundaryResolved) anyLive = true;
+                }
+                if (!anyLive) break;
             }
-            if (!anyLive) break;
             yield return new WaitForSeconds(0.25f);
             waited += 0.25f;
         }
 
-        // Walk back: return to the run-up start like a real bowler turning around.
-        var runUp = GetComponent<RunUpController>();
-        if (runUp != null)
-            runUp.BeginRunUp();
-        else
+        bool inningsComplete = CricketMatchManager.Instance != null &&
+            CricketMatchManager.Instance.InningsComplete;
+        if (!inningsComplete)
         {
-            transform.position = runUpStartPos;
-            transform.rotation = runUpStartRot;
+            // Walk back: return to the run-up start like a real bowler turning around.
+            var runUp = GetComponent<RunUpController>();
+            if (runUp != null)
+                runUp.BeginRunUp();
+            else
+            {
+                transform.position = runUpStartPos;
+                transform.rotation = runUpStartRot;
+                ApplyBowlerType();
+            }
+        }
         }
 
         waitingForNextBall = false;
-
-        // Re-fire the Bowl trigger for the next delivery.
-        // Bowler rotation still happens only on over completion.
-        ApplyBowlerType();
     }
 
     void UpdateBowlingStyleUI()

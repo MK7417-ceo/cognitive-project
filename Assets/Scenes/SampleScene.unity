@@ -223,8 +223,8 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects:
-    - targetCorrespondingSourceObject: {fileID: -1824824446595371411, guid: 8e3b4b308585a7d49991c198fb8e71e7, type: 3}
-      insertIndex: -1
+    - targetCorrespondingSourceObject: {fileID: -8679921383154817045, guid: 8e3b4b308585a7d49991c198fb8e71e7, type: 3}
+      insertIndex: 0
       addedObject: {fileID: 2015389285}
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 8e3b4b308585a7d49991c198fb8e71e7, type: 3}
@@ -246,9 +246,14 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f61a48d26df8f59438610391a5be3056, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::PlayerMovement
   moveSpeed: 3
+--- !u!4 &23692725 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 8e3b4b308585a7d49991c198fb8e71e7, type: 3}
+  m_PrefabInstance: {fileID: 23692722}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &171809158
 GameObject:
   m_ObjectHideFlags: 0
@@ -484,6 +489,7 @@ MonoBehaviour:
         m_Action: Position
         m_Flags: 0
       m_Flags: 0
+      m_Priority: 0
     m_Reference: {fileID: 0}
   m_RotationInput:
     m_UseReference: 0
@@ -512,6 +518,7 @@ MonoBehaviour:
         m_Action: Rotation
         m_Flags: 0
       m_Flags: 0
+      m_Priority: 0
     m_Reference: {fileID: 0}
   m_TrackingStateInput:
     m_UseReference: 0
@@ -532,6 +539,7 @@ MonoBehaviour:
         m_Action: Tracking State
         m_Flags: 0
       m_Flags: 0
+      m_Priority: 0
     m_Reference: {fileID: 0}
   m_PositionAction:
     m_Name: 
@@ -542,6 +550,7 @@ MonoBehaviour:
     m_Interactions: 
     m_SingletonActionBindings: []
     m_Flags: 0
+    m_Priority: 0
   m_RotationAction:
     m_Name: 
     m_Type: 0
@@ -551,6 +560,7 @@ MonoBehaviour:
     m_Interactions: 
     m_SingletonActionBindings: []
     m_Flags: 0
+    m_Priority: 0
 --- !u!81 &262598910
 AudioListener:
   m_ObjectHideFlags: 0
@@ -751,8 +761,6 @@ MonoBehaviour:
   creaseTarget: {fileID: 171809159}
   runSpeed: 1.9
   isRunning: 1
-  resetDelay: 5
-  manager: {fileID: 1587214269}
 --- !u!54 &376291533
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -798,7 +806,8 @@ MonoBehaviour:
   ballPrefab: {fileID: 341105148816686585, guid: af1c057769fb09f45927e0b202158c6d, type: 3}
   bowlingStyleUI: {fileID: 562739190}
   ballsPerOver: 6
-  bowlerOrder: 01000000000000000600000004000000
+  betweenBallsDelay: 4
+  bowlerOrder: 01000000000000000600000004000000i
   variations:
   - name: GoodLength
     targetPoint: {fileID: 870130819}
@@ -849,67 +858,6 @@ Animator:
   m_CorrespondingSourceObject: {fileID: 5866666021909216657, guid: 27705449dec3d4aed814dd730ca71e86, type: 3}
   m_PrefabInstance: {fileID: 1332945513}
   m_PrefabAsset: {fileID: 0}
---- !u!1001 &383657342
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 0}
-    m_Modifications:
-    - target: {fileID: 341105148816686585, guid: af1c057769fb09f45927e0b202158c6d, type: 3}
-      propertyPath: m_Name
-      value: ball
-      objectReference: {fileID: 0}
-    - target: {fileID: 1669015572988736674, guid: af1c057769fb09f45927e0b202158c6d, type: 3}
-      propertyPath: rightHandBatsmanStumps
-      value: 
-      objectReference: {fileID: 935173699}
-    - target: {fileID: 3081397523435385651, guid: af1c057769fb09f45927e0b202158c6d, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: -33.30845
-      objectReference: {fileID: 0}
-    - target: {fileID: 3081397523435385651, guid: af1c057769fb09f45927e0b202158c6d, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 1.4899
-      objectReference: {fileID: 0}
-    - target: {fileID: 3081397523435385651, guid: af1c057769fb09f45927e0b202158c6d, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: 4.92217
-      objectReference: {fileID: 0}
-    - target: {fileID: 3081397523435385651, guid: af1c057769fb09f45927e0b202158c6d, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 3081397523435385651, guid: af1c057769fb09f45927e0b202158c6d, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: -0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3081397523435385651, guid: af1c057769fb09f45927e0b202158c6d, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: -0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3081397523435385651, guid: af1c057769fb09f45927e0b202158c6d, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: -0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3081397523435385651, guid: af1c057769fb09f45927e0b202158c6d, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3081397523435385651, guid: af1c057769fb09f45927e0b202158c6d, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3081397523435385651, guid: af1c057769fb09f45927e0b202158c6d, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: af1c057769fb09f45927e0b202158c6d, type: 3}
 --- !u!1 &408501544 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 27705449dec3d4aed814dd730ca71e86, type: 3}
@@ -935,8 +883,6 @@ MonoBehaviour:
   creaseTarget: {fileID: 171809159}
   runSpeed: 1.9
   isRunning: 1
-  resetDelay: 5
-  manager: {fileID: 1587214269}
 --- !u!54 &408501547
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -982,7 +928,8 @@ MonoBehaviour:
   ballPrefab: {fileID: 341105148816686585, guid: af1c057769fb09f45927e0b202158c6d, type: 3}
   bowlingStyleUI: {fileID: 562739190}
   ballsPerOver: 6
-  bowlerOrder: 01000000000000000600000004000000
+  betweenBallsDelay: 4
+  bowlerOrder: 01000000000000000600000004000000i
   variations:
   - name: GoodLength
     targetPoint: {fileID: 870130819}
@@ -1532,8 +1479,6 @@ MonoBehaviour:
   creaseTarget: {fileID: 171809159}
   runSpeed: 2.5
   isRunning: 1
-  resetDelay: 5
-  manager: {fileID: 1587214269}
 --- !u!54 &582657785
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -1579,7 +1524,8 @@ MonoBehaviour:
   ballPrefab: {fileID: 341105148816686585, guid: af1c057769fb09f45927e0b202158c6d, type: 3}
   bowlingStyleUI: {fileID: 562739190}
   ballsPerOver: 6
-  bowlerOrder: 01000000000000000600000004000000
+  betweenBallsDelay: 4
+  bowlerOrder: 01000000000000000600000004000000i
   variations:
   - name: Outswing
     targetPoint: {fileID: 870130819}
@@ -1965,21 +1911,6 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 2.3500054, y: 2.050004, z: 0.0043540685}
   m_Center: {x: -0.06662163, y: 0.008903827, z: -0.0013682615}
---- !u!114 &751974956
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 751974951}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e25c98bed7eaeec4cb32c57a5280f85e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Unity.RenderPipelines.Core.Runtime::UnityEngine.Rendering.UI.DebugUIHandlerMessageBox
-  colorDefault: {r: 0.8, g: 0.8, b: 0.8, a: 1}
-  colorSelected: {r: 0.25, g: 0.65, b: 0.8, a: 1}
-  nameLabel: {fileID: 0}
 --- !u!1 &758800463
 GameObject:
   m_ObjectHideFlags: 0
@@ -2171,8 +2102,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 879649814}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.000000014901161, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -6.75, y: 7.27, z: -3.01}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -2337,47 +2268,47 @@ PrefabInstance:
   serializedVersion: 2
   m_Modification:
     serializedVersion: 3
-    m_TransformParent: {fileID: 0}
+    m_TransformParent: {fileID: 2015389285}
     m_Modifications:
     - target: {fileID: -8679921383154817045, guid: f8ce55b25df332f47a9a21736ed6af3b, type: 3}
       propertyPath: m_LocalScale.x
-      value: 0.1089406
+      value: 18.107307
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: f8ce55b25df332f47a9a21736ed6af3b, type: 3}
       propertyPath: m_LocalScale.y
-      value: 0.108940646
+      value: 18.107307
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: f8ce55b25df332f47a9a21736ed6af3b, type: 3}
       propertyPath: m_LocalScale.z
-      value: 0.16314949
+      value: 18.107307
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: f8ce55b25df332f47a9a21736ed6af3b, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -14.15
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: f8ce55b25df332f47a9a21736ed6af3b, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 1.04
+      value: -0.1
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: f8ce55b25df332f47a9a21736ed6af3b, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 2.31
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: f8ce55b25df332f47a9a21736ed6af3b, type: 3}
       propertyPath: m_LocalRotation.w
-      value: -0.4502914
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: f8ce55b25df332f47a9a21736ed6af3b, type: 3}
       propertyPath: m_LocalRotation.x
-      value: -0.5124405
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: f8ce55b25df332f47a9a21736ed6af3b, type: 3}
       propertyPath: m_LocalRotation.y
-      value: 0.4847452
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: f8ce55b25df332f47a9a21736ed6af3b, type: 3}
       propertyPath: m_LocalRotation.z
-      value: -0.5474162
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: f8ce55b25df332f47a9a21736ed6af3b, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
@@ -2390,6 +2321,46 @@ PrefabInstance:
     - target: {fileID: -8679921383154817045, guid: f8ce55b25df332f47a9a21736ed6af3b, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8126566807930887162, guid: f8ce55b25df332f47a9a21736ed6af3b, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 0.9413282
+      objectReference: {fileID: 0}
+    - target: {fileID: -8126566807930887162, guid: f8ce55b25df332f47a9a21736ed6af3b, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 1.0172362
+      objectReference: {fileID: 0}
+    - target: {fileID: -8126566807930887162, guid: f8ce55b25df332f47a9a21736ed6af3b, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -0.000080574304
+      objectReference: {fileID: 0}
+    - target: {fileID: -8126566807930887162, guid: f8ce55b25df332f47a9a21736ed6af3b, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.012739821
+      objectReference: {fileID: 0}
+    - target: {fileID: -8126566807930887162, guid: f8ce55b25df332f47a9a21736ed6af3b, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0.0002942294
+      objectReference: {fileID: 0}
+    - target: {fileID: -8126566807930887162, guid: f8ce55b25df332f47a9a21736ed6af3b, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0.99999917
+      objectReference: {fileID: 0}
+    - target: {fileID: -8126566807930887162, guid: f8ce55b25df332f47a9a21736ed6af3b, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0.0013401954
+      objectReference: {fileID: 0}
+    - target: {fileID: -8126566807930887162, guid: f8ce55b25df332f47a9a21736ed6af3b, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0.00000004470348
+      objectReference: {fileID: 0}
+    - target: {fileID: -8126566807930887162, guid: f8ce55b25df332f47a9a21736ed6af3b, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0.000000029802319
+      objectReference: {fileID: 0}
+    - target: {fileID: -8126566807930887162, guid: f8ce55b25df332f47a9a21736ed6af3b, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0.154
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: f8ce55b25df332f47a9a21736ed6af3b, type: 3}
       propertyPath: m_Name
@@ -2397,55 +2368,55 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4422856751780713982, guid: f8ce55b25df332f47a9a21736ed6af3b, type: 3}
       propertyPath: m_LocalScale.x
-      value: 1
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 4422856751780713982, guid: f8ce55b25df332f47a9a21736ed6af3b, type: 3}
       propertyPath: m_LocalScale.y
-      value: 1
+      value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 4422856751780713982, guid: f8ce55b25df332f47a9a21736ed6af3b, type: 3}
       propertyPath: m_LocalScale.z
-      value: 1
+      value: 2.5
       objectReference: {fileID: 0}
     - target: {fileID: 4422856751780713982, guid: f8ce55b25df332f47a9a21736ed6af3b, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 0
+      value: 0.090046376
       objectReference: {fileID: 0}
     - target: {fileID: 4422856751780713982, guid: f8ce55b25df332f47a9a21736ed6af3b, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0
+      value: 0.03239014
       objectReference: {fileID: 0}
     - target: {fileID: 4422856751780713982, guid: f8ce55b25df332f47a9a21736ed6af3b, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 0
+      value: 0.064207576
       objectReference: {fileID: 0}
     - target: {fileID: 4422856751780713982, guid: f8ce55b25df332f47a9a21736ed6af3b, type: 3}
       propertyPath: m_LocalRotation.w
-      value: -0.000000029802315
+      value: 0.35111988
       objectReference: {fileID: 0}
     - target: {fileID: 4422856751780713982, guid: f8ce55b25df332f47a9a21736ed6af3b, type: 3}
       propertyPath: m_LocalRotation.x
-      value: -0
+      value: -0.61697024
       objectReference: {fileID: 0}
     - target: {fileID: 4422856751780713982, guid: f8ce55b25df332f47a9a21736ed6af3b, type: 3}
       propertyPath: m_LocalRotation.y
-      value: 0.7345197
+      value: -0.5326922
       objectReference: {fileID: 0}
     - target: {fileID: 4422856751780713982, guid: f8ce55b25df332f47a9a21736ed6af3b, type: 3}
       propertyPath: m_LocalRotation.z
-      value: -0.6785873
+      value: 0.46076205
       objectReference: {fileID: 0}
     - target: {fileID: 4422856751780713982, guid: f8ce55b25df332f47a9a21736ed6af3b, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
+      value: -183.304
       objectReference: {fileID: 0}
     - target: {fileID: 4422856751780713982, guid: f8ce55b25df332f47a9a21736ed6af3b, type: 3}
       propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
+      value: 70.769
       objectReference: {fileID: 0}
     - target: {fileID: 4422856751780713982, guid: f8ce55b25df332f47a9a21736ed6af3b, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
-      value: -180
+      value: -79.268005
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects:
@@ -2465,6 +2436,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: f8ce55b25df332f47a9a21736ed6af3b, type: 3}
       insertIndex: -1
       addedObject: {fileID: 922736481}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: f8ce55b25df332f47a9a21736ed6af3b, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 922736484}
   m_SourcePrefab: {fileID: 100100000, guid: f8ce55b25df332f47a9a21736ed6af3b, type: 3}
 --- !u!1 &922736479 stripped
 GameObject:
@@ -2612,6 +2586,7 @@ MonoBehaviour:
   m_ThrowVelocityScale: 1.5
   m_ThrowAngularVelocityScale: 1
   m_ForceGravityOnDetach: 0
+  m_UnparentTransformOnGrab: 1
   m_RetainTransformParent: 1
   m_StartingSingleGrabTransformers: []
   m_StartingMultipleGrabTransformers: []
@@ -2643,8 +2618,8 @@ Rigidbody:
     m_Bits: 0
   m_ImplicitCom: 1
   m_ImplicitTensor: 1
-  m_UseGravity: 1
-  m_IsKinematic: 0
+  m_UseGravity: 0
+  m_IsKinematic: 1
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
@@ -2653,6 +2628,21 @@ Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: f8ce55b25df332f47a9a21736ed6af3b, type: 3}
   m_PrefabInstance: {fileID: 922736478}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &922736484
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 922736479}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7580c664e48c9194f85024295b1f34cf, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::BatSwingTracker
+  hitThreshold: 3.5
+  blockThreshold: 1
+  bladeLength: 0.7
 --- !u!1 &935173698
 GameObject:
   m_ObjectHideFlags: 0
@@ -2684,11 +2674,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 998303129}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!4 &945379378 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: -1824824446595371411, guid: 8e3b4b308585a7d49991c198fb8e71e7, type: 3}
-  m_PrefabInstance: {fileID: 23692722}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1 &949620049 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 27705449dec3d4aed814dd730ca71e86, type: 3}
@@ -2719,8 +2704,6 @@ MonoBehaviour:
   creaseTarget: {fileID: 171809159}
   runSpeed: 1.9
   isRunning: 1
-  resetDelay: 5
-  manager: {fileID: 1587214269}
 --- !u!54 &951946187
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -2766,7 +2749,8 @@ MonoBehaviour:
   ballPrefab: {fileID: 341105148816686585, guid: af1c057769fb09f45927e0b202158c6d, type: 3}
   bowlingStyleUI: {fileID: 562739190}
   ballsPerOver: 6
-  bowlerOrder: 01000000000000000600000004000000
+  betweenBallsDelay: 4
+  bowlerOrder: 01000000000000000600000004000000i
   variations:
   - name: GoodLength
     targetPoint: {fileID: 870130819}
@@ -3236,6 +3220,7 @@ MonoBehaviour:
   - {fileID: 1422468269}
   - {fileID: 1727952084}
   - {fileID: 1426618069}
+  currentCamIndex: 0
 --- !u!1 &1220018724
 GameObject:
   m_ObjectHideFlags: 0
@@ -3345,8 +3330,6 @@ MonoBehaviour:
   creaseTarget: {fileID: 171809159}
   runSpeed: 2
   isRunning: 1
-  resetDelay: 5
-  manager: {fileID: 1587214269}
 --- !u!54 &1289905817
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -3392,7 +3375,8 @@ MonoBehaviour:
   ballPrefab: {fileID: 341105148816686585, guid: af1c057769fb09f45927e0b202158c6d, type: 3}
   bowlingStyleUI: {fileID: 562739190}
   ballsPerOver: 6
-  bowlerOrder: 01000000000000000600000004000000
+  betweenBallsDelay: 4
+  bowlerOrder: 01000000000000000600000004000000i
   variations:
   - name: GoodLength
     targetPoint: {fileID: 870130819}
@@ -3570,7 +3554,8 @@ MonoBehaviour:
   ballPrefab: {fileID: 341105148816686585, guid: af1c057769fb09f45927e0b202158c6d, type: 3}
   bowlingStyleUI: {fileID: 562739190}
   ballsPerOver: 6
-  bowlerOrder: 01000000000000000600000004000000
+  betweenBallsDelay: 4
+  bowlerOrder: 01000000000000000600000004000000i
   variations:
   - name: GoodLength
     targetPoint: {fileID: 870130819}
@@ -3650,8 +3635,6 @@ MonoBehaviour:
   creaseTarget: {fileID: 171809159}
   runSpeed: 2.5
   isRunning: 1
-  resetDelay: 5
-  manager: {fileID: 1587214269}
 --- !u!1001 &1332945513
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -3768,8 +3751,6 @@ MonoBehaviour:
   creaseTarget: {fileID: 171809159}
   runSpeed: 1.9
   isRunning: 1
-  resetDelay: 5
-  manager: {fileID: 1587214269}
 --- !u!54 &1366614348
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -3815,7 +3796,8 @@ MonoBehaviour:
   ballPrefab: {fileID: 341105148816686585, guid: af1c057769fb09f45927e0b202158c6d, type: 3}
   bowlingStyleUI: {fileID: 562739190}
   ballsPerOver: 6
-  bowlerOrder: 01000000000000000600000004000000
+  betweenBallsDelay: 4
+  bowlerOrder: 01000000000000000600000004000000i
   variations:
   - name: GoodLength
     targetPoint: {fileID: 870130819}
@@ -3914,6 +3896,7 @@ MonoBehaviour:
   batHolder: {fileID: 2015389285}
   localPosOffset: {x: 0, y: 0, z: 0}
   localRotOffset: {x: 0, y: 0, z: 0}
+  realBatLength: 0.85
 --- !u!1 &1422468265
 GameObject:
   m_ObjectHideFlags: 0
@@ -5227,9 +5210,6 @@ PrefabInstance:
       addedObject: {fileID: 998303128}
     - targetCorrespondingSourceObject: {fileID: -4390533044441498756, guid: 629708bd56448604eaa22c2f1d8bf204, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 751974956}
-    - targetCorrespondingSourceObject: {fileID: -4390533044441498756, guid: 629708bd56448604eaa22c2f1d8bf204, type: 3}
-      insertIndex: -1
       addedObject: {fileID: 751974955}
     - targetCorrespondingSourceObject: {fileID: 6360261752004965304, guid: 629708bd56448604eaa22c2f1d8bf204, type: 3}
       insertIndex: -1
@@ -5895,12 +5875,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2015389284}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 0.52274776, y: 0.52274776, z: 0.52274776}
+  m_LocalRotation: {x: 0.54744726, y: 0.45160115, z: -0.4758884, w: 0.51950765}
+  m_LocalPosition: {x: 0.54407835, y: 1.1241019, z: 0.026741717}
+  m_LocalScale: {x: 0.5227477, y: 0.52274776, z: 0.5227478}
   m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 945379378}
+  m_Children:
+  - {fileID: 922736483}
+  m_Father: {fileID: 23692725}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &2015389286
 MonoBehaviour:
@@ -5952,8 +5933,6 @@ MonoBehaviour:
   creaseTarget: {fileID: 171809159}
   runSpeed: 2
   isRunning: 1
-  resetDelay: 5
-  manager: {fileID: 1587214269}
 --- !u!54 &2060970319
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -5999,7 +5978,8 @@ MonoBehaviour:
   ballPrefab: {fileID: 341105148816686585, guid: af1c057769fb09f45927e0b202158c6d, type: 3}
   bowlingStyleUI: {fileID: 562739190}
   ballsPerOver: 6
-  bowlerOrder: 01000000000000000600000004000000
+  betweenBallsDelay: 4
+  bowlerOrder: 01000000000000000600000004000000i
   variations:
   - name: GoodLength
     targetPoint: {fileID: 870130819}
@@ -6153,7 +6133,7 @@ MonoBehaviour:
   m_linkedTextComponent: {fileID: 0}
   parentLinkedComponent: {fileID: 0}
   m_enableKerning: 0
-  m_ActiveFontFeatures: 6e72656b
+  m_ActiveFontFeatures: 6e72656bu
   m_enableExtraPadding: 0
   checkPaddingRequired: 0
   m_isRichText: 1
@@ -6241,10 +6221,8 @@ SceneRoots:
   - {fileID: 952798883}
   - {fileID: 562739194}
   - {fileID: 1220018727}
-  - {fileID: 922736478}
+  - {fileID: 1587214270}
   - {fileID: 171809159}
   - {fileID: 1192145264}
-  - {fileID: 1587214270}
   - {fileID: 627791922}
   - {fileID: 758800465}
-  - {fileID: 383657342}

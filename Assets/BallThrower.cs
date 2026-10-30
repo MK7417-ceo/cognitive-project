@@ -2,6 +2,8 @@ using UnityEngine;
 
 public class BallThrower : MonoBehaviour
 {
+    public static GameObject ActiveMatchBall { get; private set; }
+
     private Rigidbody rb;
 
     [Header("Ball Life Settings")]
@@ -18,6 +20,17 @@ public class BallThrower : MonoBehaviour
         }
     }
 
+    public static void TrackMatchBall(GameObject ball)
+    {
+        ActiveMatchBall = ball;
+    }
+
+    public static void ReleaseMatchBall(GameObject ball)
+    {
+        if (ActiveMatchBall == ball)
+            ActiveMatchBall = null;
+    }
+
     // Called ONLY on ball clone
     public void Launch(
         Vector3 startPos,
@@ -28,6 +41,8 @@ public class BallThrower : MonoBehaviour
     )
     {
         if (rb == null) return;
+
+        TrackMatchBall(gameObject);
 
         // Reset velocities
         rb.linearVelocity = Vector3.zero;
@@ -62,5 +77,10 @@ public class BallThrower : MonoBehaviour
         // BallHitPhysics (added at runtime by CricketMatchManager) now owns
         // cleanup: a live ball lives until it is dead, caught, bowled, or
         // has crossed the boundary and settled, with a stale-ball fallback.
+    }
+
+    private void OnDestroy()
+    {
+        ReleaseMatchBall(gameObject);
     }
 }
