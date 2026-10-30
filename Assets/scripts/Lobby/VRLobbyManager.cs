@@ -9,9 +9,13 @@ using UnityEngine.UI;
 /// - This manager is created by AuthLobbyBootstrap (RuntimeInitialize,
 ///   AfterSceneLoad) OR can be placed in the scene by hand. Either way its
 ///   Awake() runs BEFORE any BowlingManager.Start() (Unity guarantees all
-///   Awakes run before any Start), so deactivating the bowlers here really
+///   Awakes run before any Start), so gating the bowlers here really
 ///   stops the first delivery until the player picks a mode in the lobby.
-///   Do NOT move the bowler deactivation into Start() — by then the first
+///   FLOW RULE: the bowler is NEVER hidden (SetActive(false)). A real
+///   bowler stands visible at the top of his run-up before the match.
+///   Only his BowlingManager + RunUpController are disabled, so he
+///   stands idle and does not bowl. Walk Out re-enables them.
+///   Do NOT move the bowler gating into Start() — by then the first
 ///   Bowl trigger has already fired.
 /// - Flow: Auth panel -> Lobby panel -> Match / Nets / Training info /
 ///   How to Play. Sign Out returns to the Auth panel.
@@ -19,16 +23,26 @@ using UnityEngine.UI;
 ///   old bug): the pavilion is NOT built at the player's start position.
 ///   The old code anchored lobbyRoot to the camera, and the camera starts
 ///   at the batsman — so the whole dressing room, floor and ceiling landed
-///   ON TOP of the pitch, over the stumps. Real cricket pavilions sit at
-///   the EDGE of the ground, beyond the boundary, facing the pitch — so
-///   this code now places the pavilion pavilionSideDistance metres to the
-///   SIDE of the pitch centre (perpendicular to the pitch direction),
-///   facing back toward the pitch, and teleports the player rig there
-///   while the lobby is open. Walk Out teleports the rig back to the
-///   batsman position it saved before leaving. The glass wall now looks
-///   onto the REAL stadium — the old fake field/pitch/floodlights drawn
-///   in front of the glass are deleted, because they painted a second
-///   field over the real one.
+///   ON TOP of the pitch, over the stumps. That was wrong, and the later
+///   30 m side placement was also wrong: the game's boundary is 55 m
+///   (CricketMatchManager.boundaryRadius), so 30 m was still INSIDE the
+///   field. REAL-WORLD PAVILION RULE (user directive, Oct 30): a real
+///   pavilion is a building OUTSIDE the boundary rope, on the side of
+///   the ground, facing the pitch — never on the pitch, never in the
+///   middle of the outfield, never overlapping the rope, the stands or
+///   the pitch. This code therefore places the pavilion centre
+///   max(pavilionSideDistance = 62 m, boundaryRadius + 7 m) sideways
+///   from the TRUE pitch centre (midpoint between batsman and bowler,
+///   not the batsman camera position), facing back toward the pitch.
+///   Numbers, pitch centre at 0 m: pavilion centre 62 m, floor front
+///   edge 57.5 m (2.5 m beyond the 55 m rope), glass 59.4 m, panel
+///   60.4 m — all outside the rope, with a clear walkway gap, no
+///   overlap by construction. The pavilion BUILDING stays visible
+///   during a match like a real ground (only the lobby panel hides);
+///   Walk Out teleports the rig back to the batsman position it saved
+///   before leaving. The glass wall looks onto the REAL stadium — the
+///   old fake field/pitch/floodlights drawn in front of the glass are
+///   deleted, because they painted a second field over the real one.
 /// - The lobby is a WorldSpace panel inside a preview-matched Pavilion
 ///   dressing room built ONLY from code primitives and code-made
 ///   materials — no external models, no scene edits needed. It matches
@@ -78,7 +92,7 @@ public class VRLobbyManager : MonoBehaviour
 
     [Header("Pavilion location (real-world rule)")]
     [Tooltip("Distance from the pitch centre to the pavilion, sideways from the pitch. Tune in the Inspector if the pavilion lands inside the stands in your scene scale — the pitch must stay clear of it.")]
-    public float pavilionSideDistance = 30f;
+    public float pavilionSideDistance = 62f;
 
     [Tooltip("True = pavilion on the right side of the pitch when facing the bowler, like a real ground's main pavilion. False = left side.")]
     public bool pavilionOnRightSide = true;
@@ -103,6 +117,11 @@ public class VRLobbyManager : MonoBehaviour
     private GameObject signInPanel;
     private GameObject newPlayerPanel;
     private List<BowlingManager> bowlers = new List<BowlingManager>();
+    // User-selected match setup (pavilion, chosen before Start).
+    // Default: 5 overs, right-arm bowler - the previous match default.
+    private int selectedOvers = 5;
+    private bool selectedLeftArm = false;
+    private Text selectionText;
     private bool bowlersWereActive;
 
     // Player-rig teleport state: lobby lives at the boundary, the match
@@ -127,16 +146,27 @@ public class VRLobbyManager : MonoBehaviour
         Instance = this;
 
         // Must run in Awake (see header): bowlers' Start() fires the first
-        // Bowl trigger, so they must be inactive before Start runs.
+        // Bowl trigger, so they must be gated before Start runs.
+        // FLOW: keep the bowler GameObject VISIBLE, disable only the
+        // bowling scripts, so he stands idle at the run-up, not vanished.
         CollectBowlers();
         bowlersWereActive = false;
         foreach (var b in bowlers)
         {
-            if (b != null && b.gameObject.activeSelf)
+            if (b == null) continue;
+            bowlersWereActive = true;
+            var runUp = b.GetComponent<RunUpController>();
+            if (runUp != null)
             {
-                bowlersWereActive = true;
-                b.gameObject.SetActive(false);
+                runUp.isRunning = false;
+                runUp.enabled = false;
             }
+            if (b.animator != null)
+            {
+                b.animator.ResetTrigger("Bowl");
+                b.animator.Play("StandIdle", 0, 0f);
+            }
+            b.enabled = false;
         }
 
         auth = GetComponent<PlayerAuthManager>();
@@ -167,7 +197,14 @@ public class VRLobbyManager : MonoBehaviour
         bowlers.Clear();
         foreach (var b in FindObjectsByType<BowlingManager>(FindObjectsInactive.Include))
         {
-            if (b != null && !bowlers.Contains(b)) bowlers.Add(b);
+            if (b == null || bowlers.Contains(b)) continue;
+            // Fielder clones are copies of the bowler template and also
+            // carry a BowlingManager component. They are NOT bowlers:
+            // enabling them would turn fielders into bowlers and break
+            // the match. Only real scene bowlers belong here.
+            if (b.gameObject.name.StartsWith("Fielder_")) continue;
+            if (b.transform.parent != null && b.transform.parent.name == "NineHumanFielders") continue;
+            bowlers.Add(b);
         }
     }
 
@@ -176,13 +213,31 @@ public class VRLobbyManager : MonoBehaviour
         CollectBowlers();
         Time.timeScale = 1f;
         RestorePlayerRigToMatch();
+        // Apply pavilion selections, BEFORE bowlers start.
+        if (isMatch && CricketMatchManager.Instance != null)
+            CricketMatchManager.Instance.oversPerInnings = Mathf.Max(1, selectedOvers);
+        BowlerType[] armOrder = selectedLeftArm
+            ? new BowlerType[] { BowlerType.LeftArmFast, BowlerType.LeftArmMediumFast, BowlerType.LeftArmOrthodoxSpin, BowlerType.LeftArmWristSpin }
+            : new BowlerType[] { BowlerType.RightArmFast, BowlerType.RightArmMediumFast, BowlerType.RightArmOffSpin, BowlerType.RightArmLegSpin };
+        // FLOW: bowler was visible but gated. Re-enable scripts only;
+        // do NOT call BeginRunUp here - RunUpController.Start has not
+        // run yet for a gated bowler, so its start position is not
+        // captured yet. Enabling lets Start run next frame and the
+        // bowler runs in from his scene run-up position.
         foreach (var b in bowlers)
         {
-            if (b != null) b.gameObject.SetActive(true);
+            if (b == null) continue;
+            b.bowlerOrder = armOrder;
+            b.enabled = true;
+            var runUp = b.GetComponent<RunUpController>();
+            if (runUp != null) runUp.enabled = true;
         }
         if (isMatch && auth != null) auth.RecordSession();
-        if (lobbyRoot != null) lobbyRoot.SetActive(false);
+        // USER RULE (Oct 30): on Start, the pavilion DISAPPEARS and the
+        // VR player stands at the batsman side to play. This supersedes
+        // the earlier building-stays rule.
         if (lobbyCanvas != null) lobbyCanvas.gameObject.SetActive(false);
+        if (lobbyRoot != null) lobbyRoot.SetActive(false);
         State = LobbyState.Match;
     }
 
@@ -205,8 +260,9 @@ public class VRLobbyManager : MonoBehaviour
     {
         Time.timeScale = 1f;
         RestorePlayerRigToMatch();
-        if (lobbyRoot != null) lobbyRoot.SetActive(false);
+        // Same as Start: pavilion disappears, player is at batsman side.
         if (lobbyCanvas != null) lobbyCanvas.gameObject.SetActive(false);
+        if (lobbyRoot != null) lobbyRoot.SetActive(false);
         State = LobbyState.Match;
     }
 
@@ -350,11 +406,35 @@ public class VRLobbyManager : MonoBehaviour
         if (forward.sqrMagnitude < 0.01f) forward = Vector3.forward;
         forward.Normalize();
         float groundY = 0f;
+        // TRUE pitch centre: midpoint between batsman and bowler. The
+        // old code used the camera (batsman) position as "pitch centre",
+        // which shifted the pavilion ~10 m along the pitch. If no bowler
+        // is found, fall back to the camera direction only.
         Vector3 pitchCentre = new Vector3(playerPos.x, groundY, playerPos.z);
-        Vector3 side = Vector3.Cross(Vector3.up, forward).normalized;
+        Vector3 pitchDir = forward;
+        GameObject bowlerGo = GameObject.Find("Bowler");
+        if (bowlerGo != null)
+        {
+            Vector3 bowlerPos = bowlerGo.transform.position;
+            bowlerPos.y = groundY;
+            Vector3 batsmanPos = new Vector3(playerPos.x, groundY, playerPos.z);
+            float endDistance = Vector3.Distance(batsmanPos, bowlerPos);
+            if (endDistance >= 10f && endDistance <= 30f)
+            {
+                pitchCentre = (batsmanPos + bowlerPos) * 0.5f;
+                pitchDir = (bowlerPos - batsmanPos).normalized;
+            }
+        }
+        Vector3 side = Vector3.Cross(Vector3.up, pitchDir).normalized;
         if (!pavilionOnRightSide) side = -side;
         Vector3 toPitch = -side;
-        pavilionPos = pitchCentre + side * pavilionSideDistance;
+        // Boundary-aware distance: never inside the 55 m rope, even if
+        // someone lowers pavilionSideDistance in the Inspector.
+        float boundary = 55f;
+        if (CricketMatchManager.Instance != null)
+            boundary = CricketMatchManager.Instance.boundaryRadius;
+        float pavilionDistance = Mathf.Max(pavilionSideDistance, boundary + 7f);
+        pavilionPos = pitchCentre + side * pavilionDistance;
         pavilionPos.y = groundY;
         pavilionGroundY = groundY;
         pavilionRot = Quaternion.LookRotation(toPitch, Vector3.up);
@@ -375,11 +455,19 @@ public class VRLobbyManager : MonoBehaviour
         if (buildPavilionShell && pavilionAnchor == null)
             BuildPavilionShell();
 
-        // Canvas: WorldSpace in VR, ScreenSpaceOverlay as a PC fallback.
+        // Canvas: ALWAYS ScreenSpaceOverlay for Auth/Lobby.
+        // WHY nothing was coming before: the panel was WorldSpace,
+        // 62 m away in the pavilion, but the Game view camera is a
+        // stadium camera looking at the pitch, not the XR camera in
+        // the pavilion - so the panel was off-screen and invisible.
+        // ScreenSpaceOverlay puts Auth/Lobby on the screen itself,
+        // no matter which camera is active. The pavilion building
+        // itself still stays in the world at 62 m, visible from
+        // Spider Cam. On Start, this canvas is hidden.
         var canvasGo = new GameObject("LobbyCanvas");
         canvasGo.transform.SetParent(pavilionAnchor != null ? pavilionAnchor : lobbyRoot.transform, false);
         lobbyCanvas = canvasGo.AddComponent<Canvas>();
-        if (cam != null)
+        if (false)
         {
             lobbyCanvas.renderMode = RenderMode.WorldSpace;
             var rt = canvasGo.GetComponent<RectTransform>();
@@ -455,44 +543,54 @@ public class VRLobbyManager : MonoBehaviour
 
     private void BuildLobbyPanel()
     {
-        MakeText(lobbyPanel.transform, "PAVILION  •  DRESSING ROOM", 40, new Vector2(0f, 270f), TextAnchor.MiddleCenter, Color.yellow);
+        MakeText(lobbyPanel.transform, "PAVILION  \u2022  DRESSING ROOM", 40, new Vector2(0f, 270f), TextAnchor.MiddleCenter, Color.yellow);
         lobbyWelcomeText = MakeText(lobbyPanel.transform, "Welcome", 34, new Vector2(0f, 215f), TextAnchor.MiddleCenter, Color.white);
         lobbyProfileText = MakeText(lobbyPanel.transform, "", 24, new Vector2(0f, 175f), TextAnchor.MiddleCenter, new Color(0.8f, 0.8f, 0.8f));
-
-        // Modes are labelled as places, so the lobby feels like a room,
-        // not a flat menu — matching the approved UI preview (Option A).
-        MakeButton(lobbyPanel.transform, "Walk Out: Match vs AI Bowler", new Vector2(0f, 95f), new Vector2(640f, 70f),
+        selectionText = MakeText(lobbyPanel.transform, "", 24, new Vector2(0f, 140f), TextAnchor.MiddleCenter, Color.yellow);
+        UpdateSelectionText();
+        MakeButton(lobbyPanel.transform, "1 Over", new Vector2(-260f, 100f), new Vector2(180f, 60f), () => SetOvers(1));
+        MakeButton(lobbyPanel.transform, "2 Overs", new Vector2(0f, 100f), new Vector2(180f, 60f), () => SetOvers(2));
+        MakeButton(lobbyPanel.transform, "5 Overs", new Vector2(260f, 100f), new Vector2(180f, 60f), () => SetOvers(5));
+        MakeText(lobbyPanel.transform, "Bowler Arm", 24, new Vector2(0f, 55f), TextAnchor.MiddleCenter, Color.white);
+        MakeButton(lobbyPanel.transform, "Right Arm", new Vector2(-170f, 15f), new Vector2(300f, 60f), () => SetArm(false));
+        MakeButton(lobbyPanel.transform, "Left Arm", new Vector2(170f, 15f), new Vector2(300f, 60f), () => SetArm(true));
+        MakeButton(lobbyPanel.transform, "Start: Match vs AI Bowler", new Vector2(0f, -65f), new Vector2(640f, 70f),
             () => StartBowling(true));
-        MakeButton(lobbyPanel.transform, "Go to Nets: Practice", new Vector2(0f, 10f), new Vector2(640f, 70f),
+        MakeButton(lobbyPanel.transform, "Go to Nets: Practice", new Vector2(0f, -140f), new Vector2(640f, 70f),
             () => StartBowling(false));
-        MakeButton(lobbyPanel.transform, "Training Room", new Vector2(-170f, -75f), new Vector2(300f, 70f), () =>
+        MakeButton(lobbyPanel.transform, "Training Room", new Vector2(-170f, -215f), new Vector2(300f, 60f), () =>
         {
-            ShowInfo("Training Room\n\n"
-                + "Cognitive training modules are not in SampleScene yet.\n"
-                + "ModuleSelectorUI exists in code, but no scene object uses it.\n\n"
-                + "To enable this button for real, add a GameObject with\n"
-                + "ModuleSelectorUI + a Canvas + button prefab in the Unity\n"
-                + "Editor, then point this button at it. Until then this\n"
-                + "button will not pretend training has started.");
+            ShowInfo("Training Room\n\nCognitive training modules are not in SampleScene yet.");
         });
-        MakeButton(lobbyPanel.transform, "How to Play", new Vector2(170f, -75f), new Vector2(300f, 70f), () =>
+        MakeButton(lobbyPanel.transform, "How to Play", new Vector2(170f, -215f), new Vector2(300f, 60f), () =>
         {
-            ShowInfo("How to Play\n\n"
-                + "• Grab the bat with your controller and swing.\n"
-                + "• Keys 1-9 switch camera. Esc returns to this lobby (pause).\n"
-                + "• The bowler waits until the last ball is dead or past\n"
-                + "  the boundary — a hit ball never vanishes mid-flight.\n"
-                + "• In VR, use Guest if you do not want to type a PIN.");
+            ShowInfo("How to Play\n\n\u2022 Grab the bat with your controller and swing.\n\u2022 Keys 1-9 switch camera. Esc returns to this lobby (pause).\n\u2022 In VR, use Guest if you do not want to type a PIN.");
         });
-        MakeButton(lobbyPanel.transform, "Sign Out", new Vector2(0f, -170f), new Vector2(300f, 70f), () =>
+        MakeButton(lobbyPanel.transform, "Sign Out", new Vector2(0f, -290f), new Vector2(300f, 60f), () =>
         {
-            // If returning from a paused match, unpause first so the
-            // auth screen is not frozen behind a paused game.
             Time.timeScale = 1f;
             auth.SignOut();
         });
         MakeText(lobbyPanel.transform, "Esc during a match returns here (pause).",
-            20, new Vector2(0f, -240f), TextAnchor.MiddleCenter, new Color(0.8f, 0.8f, 0.8f));
+            20, new Vector2(0f, -335f), TextAnchor.MiddleCenter, new Color(0.8f, 0.8f, 0.8f));
+    }
+
+    private void SetOvers(int overs)
+    {
+        selectedOvers = Mathf.Max(1, overs);
+        UpdateSelectionText();
+    }
+
+    private void SetArm(bool leftArm)
+    {
+        selectedLeftArm = leftArm;
+        UpdateSelectionText();
+    }
+
+    private void UpdateSelectionText()
+    {
+        if (selectionText != null)
+            selectionText.text = "Match: " + selectedOvers + " overs  \u2022  Bowler: " + (selectedLeftArm ? "Left Arm" : "Right Arm");
     }
 
     private void BuildInfoPanel()
@@ -513,7 +611,9 @@ public class VRLobbyManager : MonoBehaviour
         // Everything here is a code primitive — no model files are needed.
         // Colours use the deck/preview palette: stadium green, wood brown,
         // cream, amber, deep red sofa. All objects are children of
-        // lobbyRoot, so they hide with the lobby when a match starts.
+        // Shell objects are children of lobbyRoot, but the building is
+        // kept visible during a match: StartBowling/ResumeMatch hide only
+        // the lobby canvas, never the shell (real-world rule).
 
         // Room: wooden floor, ceiling, side walls.
         MakeBox("PavilionFloor", new Vector3(0f, 0.02f, 1.5f), new Vector3(10f, 0.1f, 6f), new Color(0.42f, 0.28f, 0.16f));
@@ -557,6 +657,32 @@ public class VRLobbyManager : MonoBehaviour
         MakeBox("PavilionBenchTop", new Vector3(0f, 0.48f, 1.0f), new Vector3(2.2f, 0.08f, 0.5f), new Color(0.50f, 0.36f, 0.22f));
         MakeBox("PavilionBenchLegLeft", new Vector3(-0.9f, 0.24f, 1.0f), new Vector3(0.12f, 0.48f, 0.45f), new Color(0.30f, 0.20f, 0.12f));
         MakeBox("PavilionBenchLegRight", new Vector3(0.9f, 0.24f, 1.0f), new Vector3(0.12f, 0.48f, 0.45f), new Color(0.30f, 0.20f, 0.12f));
+
+        // STANDS INTEGRATION (real-world rule): the pavilion is a section
+        // of the stands, not a shed on the grass. Stepped seating rows
+        // extend sideways behind the building, in stadium seat colours,
+        // so the building reads as part of the bowl, not a standalone box.
+        MakeBox("StandsStep1", new Vector3(0f, 0.35f, -2.5f), new Vector3(22f, 0.6f, 1.5f), new Color(0.75f, 0.15f, 0.15f));
+        MakeBox("StandsStep2", new Vector3(0f, 0.85f, -4.0f), new Vector3(22f, 0.6f, 1.5f), new Color(0.25f, 0.35f, 0.75f));
+        MakeBox("StandsStep3", new Vector3(0f, 1.35f, -5.5f), new Vector3(22f, 0.6f, 1.5f), new Color(0.75f, 0.75f, 0.25f));
+        // WALKWAY + BOUNDARY GATE: players walk out through the door,
+        // down this strip to the rope (floor front edge is at 57.5 m,
+        // rope at 55 m, so the strip is 2.5 m long), then across the
+        // outfield to the pitch - exactly like a real ground.
+        MakeBox("PavilionWalkway", new Vector3(0f, 0.03f, 5.75f), new Vector3(2.0f, 0.06f, 2.5f), new Color(0.55f, 0.55f, 0.55f));
+        MakeBox("BoundaryGateLeft", new Vector3(-1.1f, 1.1f, 7.0f), new Vector3(0.2f, 2.2f, 0.2f), new Color(0.91f, 0.64f, 0.09f));
+        MakeBox("BoundaryGateRight", new Vector3(1.1f, 1.1f, 7.0f), new Vector3(0.2f, 2.2f, 0.2f), new Color(0.91f, 0.64f, 0.09f));
+        MakeBox("BoundaryGateTop", new Vector3(0f, 2.25f, 7.0f), new Vector3(2.4f, 0.2f, 0.2f), new Color(0.91f, 0.64f, 0.09f));
+
+        // VISIBILITY: a 3.2 m room inside the stands bowl is hidden
+        // under the seating tiers, which is why the pavilion was not
+        // visible from the ground or from above. Add a tall roof block
+        // on top of the room, rising above the seats, so the pavilion
+        // is unmissable from the pitch and from Spider Cam.
+        MakeBox("PavilionRoof", new Vector3(0f, 5.2f, 1.5f), new Vector3(12f, 0.6f, 8f), new Color(0.06f, 0.23f, 0.18f));
+        MakeBox("PavilionRoofTrim", new Vector3(0f, 5.55f, 1.5f), new Vector3(12.2f, 0.15f, 8.2f), new Color(0.91f, 0.64f, 0.09f));
+        MakeBox("PavilionRoofPostLeft", new Vector3(-5f, 4.2f, 1.5f), new Vector3(0.3f, 2f, 0.3f), new Color(0.30f, 0.20f, 0.12f));
+        MakeBox("PavilionRoofPostRight", new Vector3(5f, 4.2f, 1.5f), new Vector3(0.3f, 2f, 0.3f), new Color(0.30f, 0.20f, 0.12f));
 
         // Ceiling lights: glowing strips plus two real point lights
         // (no shadows, low count, so VR performance stays safe).

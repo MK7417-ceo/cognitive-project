@@ -275,7 +275,7 @@ public class CricketMatchManager : MonoBehaviour
         canvasGo.AddComponent<CanvasScaler>();
         canvasGo.AddComponent<GraphicRaycaster>();
 
-        bigMessage = MakeText(canvasGo.transform, 64, 120f);
+        bigMessage = MakeText(canvasGo.transform, 36, 120f);
         RectTransform messageRect = bigMessage.rectTransform;
         messageRect.anchorMin = new Vector2(0.04f, 0.5f);
         messageRect.anchorMax = new Vector2(0.96f, 0.5f);
@@ -284,7 +284,7 @@ public class CricketMatchManager : MonoBehaviour
         messageRect.sizeDelta = new Vector2(0f, 180f);
         bigMessage.resizeTextForBestFit = true;
         bigMessage.resizeTextMinSize = 24;
-        bigMessage.resizeTextMaxSize = 64;
+        bigMessage.resizeTextMaxSize = 36;
         bigMessage.horizontalOverflow = HorizontalWrapMode.Wrap;
         bigMessage.enabled = false;
 

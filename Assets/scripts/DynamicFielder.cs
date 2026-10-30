@@ -8,6 +8,7 @@ public class DynamicFielder : MonoBehaviour
 
     Vector3 homePosition;
     Transform handTarget;
+    Animator cachedAnimator;
     BallHitPhysics targetBall;
     float returnSpeed = 5f;
 
@@ -16,6 +17,7 @@ public class DynamicFielder : MonoBehaviour
     public void Initialize(Vector3 home)
     {
         homePosition = home;
+        cachedAnimator = GetComponentInChildren<Animator>(true);
         handTarget = new GameObject("FielderHands").transform;
         handTarget.SetParent(transform, false);
         handTarget.localPosition = new Vector3(0f, 1.0f, 0.32f);
@@ -33,6 +35,10 @@ public class DynamicFielder : MonoBehaviour
 
     void Update()
     {
+        // Never let a fielder fall back into the bowling clip: if it is
+        // somehow in Bowling state, return it to StandIdle immediately.
+        if (cachedAnimator != null && cachedAnimator.GetCurrentAnimatorStateInfo(0).IsName("Bowling"))
+            cachedAnimator.Play("StandIdle", 0, 0f);
         if (targetBall == null || targetBall.State == BallHitPhysics.BallState.Dead)
         {
             targetBall = null;
@@ -65,12 +71,21 @@ public class DynamicFielder : MonoBehaviour
     {
         if (ball == null || ball.State == BallHitPhysics.BallState.Dead) return;
 
+        // Same Law 33 rule as the keeper: capture before MarkCaught().
+        bool caughtOut = ball.WouldBeCaughtOut;
         bool runOut = ball.MarkCaught();
         ball.transform.SetParent(handTarget, true);
 
         if (CricketMatchManager.Instance != null)
-            CricketMatchManager.Instance.ShowMessage(runOut ? "RUN OUT!" : "FIELDED!", Color.green);
-        Debug.Log($"DynamicFielder: {gameObject.name} fielded the ball.");
+        {
+            if (runOut)
+                CricketMatchManager.Instance.ShowMessage("RUN OUT!", Color.green);
+            else if (caughtOut)
+                CricketMatchManager.Instance.ShowMessage("CAUGHT!", Color.green);
+            else
+                CricketMatchManager.Instance.ShowMessage("FIELDED!", Color.green);
+        }
+        Debug.Log($"DynamicFielder: {gameObject.name} gathered the ball. caughtOut={caughtOut} runOut={runOut}");
         targetBall = null;
     }
 }

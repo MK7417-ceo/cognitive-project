@@ -19,6 +19,13 @@ public class BallHitPhysics : MonoBehaviour
     public BallState State { get; private set; } = BallState.Flying;
     public bool CanCallRun => State == BallState.Hit && !boundaryResolved && !outcomeRecorded;
 
+    /// <summary>
+    /// Law 33 (Caught): a catch is only a dismissal when the ball was hit
+    /// by the VR player's bat and has NOT bounced since that hit. Capture
+    /// this BEFORE MarkCaught(), because MarkCaught() sets State to Dead.
+    /// </summary>
+    public bool WouldBeCaughtOut => State == BallState.Hit && bounces == 0;
+
     /// <summary>True once this hit ball has crossed the boundary.</summary>
     public bool IsBoundaryResolved { get { return boundaryResolved; } }
 
@@ -44,6 +51,17 @@ public class BallHitPhysics : MonoBehaviour
     void Awake()
     {
         rb = GetComponent<Rigidbody>();
+        // Ball was a tiny white dot and vanished against sky/grass.
+        // A short red trail makes every delivery readable in flight
+        // without changing ball mass, size or physics.
+        if (GetComponent<TrailRenderer>() == null)
+        {
+            var trail = gameObject.AddComponent<TrailRenderer>();
+            trail.time = 0.5f;
+            trail.startWidth = 0.06f;
+            trail.endWidth = 0.01f;
+            trail.material = new Material(Shader.Find("Sprites/Default")) { color = Color.red };
+        }
     }
 
     void OnDestroy()
