@@ -9,9 +9,13 @@ using UnityEngine.UI;
 /// - This manager is created by AuthLobbyBootstrap (RuntimeInitialize,
 ///   AfterSceneLoad) OR can be placed in the scene by hand. Either way its
 ///   Awake() runs BEFORE any BowlingManager.Start() (Unity guarantees all
-///   Awakes run before any Start), so deactivating the bowlers here really
+///   Awakes run before any Start), so gating the bowlers here really
 ///   stops the first delivery until the player picks a mode in the lobby.
-///   Do NOT move the bowler deactivation into Start() — by then the first
+///   FLOW RULE: the bowler is NEVER hidden (SetActive(false)). A real
+///   bowler stands visible at the top of his run-up before the match.
+///   Only his BowlingManager + RunUpController are disabled, so he
+///   stands idle and does not bowl. Walk Out re-enables them.
+///   Do NOT move the bowler gating into Start() — by then the first
 ///   Bowl trigger has already fired.
 /// - Flow: Auth panel -> Lobby panel -> Match / Nets / Training info /
 ///   How to Play. Sign Out returns to the Auth panel.
@@ -137,16 +141,27 @@ public class VRLobbyManager : MonoBehaviour
         Instance = this;
 
         // Must run in Awake (see header): bowlers' Start() fires the first
-        // Bowl trigger, so they must be inactive before Start runs.
+        // Bowl trigger, so they must be gated before Start runs.
+        // FLOW: keep the bowler GameObject VISIBLE, disable only the
+        // bowling scripts, so he stands idle at the run-up, not vanished.
         CollectBowlers();
         bowlersWereActive = false;
         foreach (var b in bowlers)
         {
-            if (b != null && b.gameObject.activeSelf)
+            if (b == null) continue;
+            bowlersWereActive = true;
+            var runUp = b.GetComponent<RunUpController>();
+            if (runUp != null)
             {
-                bowlersWereActive = true;
-                b.gameObject.SetActive(false);
+                runUp.isRunning = false;
+                runUp.enabled = false;
             }
+            if (b.animator != null)
+            {
+                b.animator.ResetTrigger("Bowl");
+                b.animator.Play("StandIdle", 0, 0f);
+            }
+            b.enabled = false;
         }
 
         auth = GetComponent<PlayerAuthManager>();
@@ -186,9 +201,17 @@ public class VRLobbyManager : MonoBehaviour
         CollectBowlers();
         Time.timeScale = 1f;
         RestorePlayerRigToMatch();
+        // FLOW: bowler was visible but gated. Re-enable scripts only;
+        // do NOT call BeginRunUp here - RunUpController.Start has not
+        // run yet for a gated bowler, so its start position is not
+        // captured yet. Enabling lets Start run next frame and the
+        // bowler runs in from his scene run-up position.
         foreach (var b in bowlers)
         {
-            if (b != null) b.gameObject.SetActive(true);
+            if (b == null) continue;
+            b.enabled = true;
+            var runUp = b.GetComponent<RunUpController>();
+            if (runUp != null) runUp.enabled = true;
         }
         if (isMatch && auth != null) auth.RecordSession();
         // Real-world rule: the pavilion BUILDING stays visible during a
