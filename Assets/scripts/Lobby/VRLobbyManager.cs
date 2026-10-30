@@ -619,6 +619,22 @@ public class VRLobbyManager : MonoBehaviour
         MakeBox("PavilionBenchLegLeft", new Vector3(-0.9f, 0.24f, 1.0f), new Vector3(0.12f, 0.48f, 0.45f), new Color(0.30f, 0.20f, 0.12f));
         MakeBox("PavilionBenchLegRight", new Vector3(0.9f, 0.24f, 1.0f), new Vector3(0.12f, 0.48f, 0.45f), new Color(0.30f, 0.20f, 0.12f));
 
+        // STANDS INTEGRATION (real-world rule): the pavilion is a section
+        // of the stands, not a shed on the grass. Stepped seating rows
+        // extend sideways behind the building, in stadium seat colours,
+        // so the building reads as part of the bowl, not a standalone box.
+        MakeBox("StandsStep1", new Vector3(0f, 0.35f, -2.5f), new Vector3(22f, 0.6f, 1.5f), new Color(0.75f, 0.15f, 0.15f));
+        MakeBox("StandsStep2", new Vector3(0f, 0.85f, -4.0f), new Vector3(22f, 0.6f, 1.5f), new Color(0.25f, 0.35f, 0.75f));
+        MakeBox("StandsStep3", new Vector3(0f, 1.35f, -5.5f), new Vector3(22f, 0.6f, 1.5f), new Color(0.75f, 0.75f, 0.25f));
+        // WALKWAY + BOUNDARY GATE: players walk out through the door,
+        // down this strip to the rope (floor front edge is at 57.5 m,
+        // rope at 55 m, so the strip is 2.5 m long), then across the
+        // outfield to the pitch - exactly like a real ground.
+        MakeBox("PavilionWalkway", new Vector3(0f, 0.03f, 5.75f), new Vector3(2.0f, 0.06f, 2.5f), new Color(0.55f, 0.55f, 0.55f));
+        MakeBox("BoundaryGateLeft", new Vector3(-1.1f, 1.1f, 7.0f), new Vector3(0.2f, 2.2f, 0.2f), new Color(0.91f, 0.64f, 0.09f));
+        MakeBox("BoundaryGateRight", new Vector3(1.1f, 1.1f, 7.0f), new Vector3(0.2f, 2.2f, 0.2f), new Color(0.91f, 0.64f, 0.09f));
+        MakeBox("BoundaryGateTop", new Vector3(0f, 2.25f, 7.0f), new Vector3(2.4f, 0.2f, 0.2f), new Color(0.91f, 0.64f, 0.09f));
+
         // Ceiling lights: glowing strips plus two real point lights
         // (no shadows, low count, so VR performance stays safe).
         MakeEmissiveBox("CeilingLightLeft", new Vector3(-2f, 3.18f, 1.5f), new Vector3(1.0f, 0.06f, 0.3f));
