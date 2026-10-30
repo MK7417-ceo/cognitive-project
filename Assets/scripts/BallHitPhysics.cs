@@ -4,10 +4,13 @@ using UnityEngine;
 /// Lives on every bowled ball (added at runtime). Handles the two real-cricket
 /// moments the user asked for:
 ///   1. Ball hits the stumps -> bails fly (BOWLED!), ball deflects off physically.
-///   2. Bat hits the ball   -> real impulse from the actual swing speed, so the
-///      ball can clear the boundary (SIX!) or roll to it (FOUR!).
-/// A struck ball is re-spawned as a pure-physics ball so nothing scripted
-/// interferes with its flight.
+///   2. Bat hits the ball   -> REAL physics from the actual contact (Phase 1):
+///      the ball keeps its own Rigidbody and bounces off the solid bat blade
+///      using the bat's velocity at the contact point, the bat-face normal,
+///      and a sweet-spot restitution, so direction, loft and speed all come
+///      from the swing itself. No replacement ball, no teleported shot.
+/// A struck ball therefore keeps flying on the same Rigidbody, so nothing
+/// scripted interferes with its flight to the boundary.
 /// </summary>
 public class BallHitPhysics : MonoBehaviour
 {
@@ -15,6 +18,9 @@ public class BallHitPhysics : MonoBehaviour
 
     public BallState State { get; private set; } = BallState.Flying;
     public bool CanCallRun => State == BallState.Hit && !boundaryResolved && !outcomeRecorded;
+
+    /// <summary>True once this hit ball has crossed the boundary.</summary>
+    public bool IsBoundaryResolved { get { return boundaryResolved; } }
 
     // Real-world tuning.
     const float BallMass = 0.156f;          // kg, real cricket ball
@@ -27,6 +33,9 @@ public class BallHitPhysics : MonoBehaviour
     bool boundaryResolved;
     bool hasPitched;   // first ground contact: apply delivery-type pitch behaviour
     float lifeTimer;
+    float staleTimer;  // flying ball that has stopped moving / rolled away
+    float lastBatContactTime = -10f;
+    const float BatContactCooldown = 0.25f; // one contact = one shot, not many
     bool outcomeRecorded;
     bool adjudicatedWide;
 
@@ -60,19 +69,36 @@ public class BallHitPhysics : MonoBehaviour
             return;
         }
 
-        // 2) Bat -> hit (only if the bat is genuinely swinging).
+        // 2) Bat trigger fallback (only if some bat collider is still a
+        // trigger in a scene). The solid-collider path in OnCollisionEnter
+        // below is the real Phase 1 path; this keeps old setups working.
         var tracker = other.GetComponent<BatSwingTracker>();
         if (tracker == null) tracker = other.GetComponentInParent<BatSwingTracker>();
         if (tracker != null)
         {
-            if (tracker.IsRealSwing()) OnBatHit(tracker);
-            else if (tracker.IsBlock()) OnBlock();
-            // else: bat is still, ball passes (leave / miss)
+            Vector3 toBall = (transform.position - tracker.transform.position);
+            Vector3 normal = toBall.sqrMagnitude > 0.01f ? toBall.normalized : Vector3.up;
+            HandleBatContact(tracker, transform.position, normal);
         }
     }
 
     void OnCollisionEnter(Collision collision)
     {
+        // Phase 1: solid bat contact FIRST, before pitch/stump logic.
+        // This is the real-world bat: direction and speed come from the
+        // contact point, the bat face, and the bat's velocity there.
+        if (State == BallState.Flying && collision.contactCount > 0)
+        {
+            var batTracker = collision.gameObject.GetComponentInParent<BatSwingTracker>();
+            if (batTracker != null)
+            {
+                var cp = collision.GetContact(0);
+                HandleBatContact(batTracker, cp.point, cp.normal);
+                if (State != BallState.Flying) return; // hit or blocked, done
+                // If the bat was still, fall through: ball passes (leave/miss).
+            }
+        }
+
         // First pitch: react like the real delivery type (fast skids, spin
         // turns, bouncer climbs, yorker stays low). Overrides the bouncy
         // material for this one contact only.
@@ -228,8 +254,85 @@ public class BallHitPhysics : MonoBehaviour
         Debug.Log($"BallHitPhysics: bowled! incoming {incoming.magnitude:F1} m/s");
     }
 
-    // ---------------- BAT HIT ----------------
+    // ---------------- BAT HIT (Phase 1: real physics) ----------------
 
+    /// <summary>
+    /// Real bat-ball physics. No replacement ball, no faked direction.
+    /// - Bat velocity AT the contact point (linear + angular x lever arm),
+    ///   so a tip hit is harder than a handle hit and a wrist snap counts.
+    /// - Reflection off the bat face (contact normal), so the shot goes
+    ///   where the bat face was actually pointing, with loft from the face.
+    /// - Restitution by sweet spot: full power near the sweet spot,
+    ///   weaker + more sideways on an edge.
+    /// - Incoming ball speed is preserved in the reflection, not discarded:
+    ///   a fast ball hit with a fast bat goes further than either alone.
+    /// - Still bat (&lt; block threshold): leave/miss, ball passes.
+    /// - Slow bat (block threshold): defensive block, ball drops dead.
+    /// The same ball keeps its Rigidbody, so it can genuinely reach the
+    /// boundary on physics alone, and its lifetime is 14 s from the hit.
+    /// </summary>
+    void HandleBatContact(BatSwingTracker tracker, Vector3 contactPoint, Vector3 faceNormal)
+    {
+        if (State != BallState.Flying || rb == null || tracker == null) return;
+        if (Time.time - lastBatContactTime < BatContactCooldown) return;
+        lastBatContactTime = Time.time;
+
+        float batSpeed = tracker.GetSwingSpeed();
+
+        // Still bat: leave / miss.
+        if (batSpeed < tracker.blockThreshold) return;
+
+        // Slow swing: block, not a shot.
+        if (!tracker.IsRealSwing())
+        {
+            OnBlock();
+            return;
+        }
+
+        Vector3 batVel = tracker.GetVelocityAtPoint(contactPoint);
+        Vector3 incoming = rb.linearVelocity;
+
+        // Face normal must point from bat toward ball, or the reflection
+        // inverts. Unity contact normals usually do, but enforce it.
+        Vector3 normal = faceNormal;
+        if (normal.sqrMagnitude < 0.01f)
+            normal = (transform.position - contactPoint).normalized;
+        normal.Normalize();
+        Vector3 toBall = transform.position - contactPoint;
+        if (toBall.sqrMagnitude > 0.01f && Vector3.Dot(normal, toBall.normalized) < 0f)
+            normal = -normal;
+
+        // Reflect the ball's velocity relative to the moving bat.
+        Vector3 relative = incoming - batVel;
+        float vn = Vector3.Dot(relative, normal);
+        Vector3 reflected = vn < 0f ? relative - 2f * vn * normal : relative;
+
+        // Sweet spot: 0.75 restitution in the middle, 0.35 on a bad edge.
+        float sweetDist = Vector3.Distance(contactPoint, tracker.GetSweetSpotPosition());
+        float restitution = Mathf.Lerp(0.75f, 0.35f, Mathf.Clamp01(sweetDist / 0.35f));
+
+        Vector3 exit = reflected * restitution + batVel * 0.85f;
+        float exitSpeed = Mathf.Clamp(exit.magnitude, MinExitSpeed, MaxExitSpeed);
+        if (exit.sqrMagnitude < 0.01f) exit = normal * exitSpeed;
+        else exit = exit.normalized * exitSpeed;
+
+        rb.linearVelocity = exit;
+        // Spin from the bat's rotation + a little loft spin, like a real shot.
+        rb.angularVelocity = tracker.GetAngularVelocity() * 0.5f
+            + Vector3.Cross(exit.normalized, Vector3.up) * exitSpeed * 0.2f;
+
+        State = BallState.Hit;
+        bounces = 0;
+        boundaryResolved = false;
+        lifeTimer = 14f;
+
+        var ui = CricketMatchManager.Instance;
+        if (ui != null) ui.ShowSpeed(exitSpeed);
+        Debug.Log($"BallHitPhysics: REAL HIT! bat {batSpeed:F1} m/s at contact, sweetDist {sweetDist:F2} m, restitution {restitution:F2} -> ball {exitSpeed:F1} m/s ({exitSpeed * 3.6f:F0} km/h) dir {exit.normalized}");
+    }
+
+    // Legacy trigger path, kept only so old callers still compile.
+    // Phase 1 uses HandleBatContact above.
     void OnBatHit(BatSwingTracker tracker)
     {
         float batSpeed = tracker.GetSwingSpeed(); // m/s, real swing
@@ -372,6 +475,33 @@ public class BallHitPhysics : MonoBehaviour
         {
             lifeTimer -= Time.deltaTime;
             if (lifeTimer <= 0f) Destroy(gameObject);
+            return;
+        }
+
+        // Phase 1: flying ball cleanup WITHOUT a fixed timer.
+        // A live ball is never deleted for being slow or old. Only a ball
+        // that has actually stopped, fallen off the world, or rolled far
+        // away is retired, so the bowler can bowl the next delivery.
+        // This, together with BallThrower no longer using Destroy(5 s),
+        // is the boundary-vanish fix.
+        if (rb != null && rb.linearVelocity.magnitude < 0.05f)
+        {
+            staleTimer += Time.deltaTime;
+            if (staleTimer > 3f)
+            {
+                State = BallState.Dead;
+                lifeTimer = 2f;
+            }
+        }
+        else
+        {
+            staleTimer = 0f;
+        }
+
+        if (transform.position.y < -2f)
+        {
+            State = BallState.Dead;
+            lifeTimer = 0.5f;
         }
     }
 

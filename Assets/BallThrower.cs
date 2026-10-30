@@ -7,6 +7,7 @@ public class BallThrower : MonoBehaviour
     private Rigidbody rb;
 
     [Header("Ball Life Settings")]
+    [Tooltip("LEGACY, kept only so the existing ball prefab does not lose a serialized field. It is intentionally NOT used anymore: BallHitPhysics owns the ball's lifetime, so a ball can never vanish mid-flight to the boundary just because a fixed timer expired (Phase 1 / bowler-timing fix).")]
     public float lifeTime = 5f;
 
     private void Awake()
@@ -69,8 +70,13 @@ public class BallThrower : MonoBehaviour
         rb.angularVelocity = spinTorque;
         // --------------------------------------------
 
-        // 🔥 DESTROY ONLY THIS BALL INSTANCE
-        Destroy(gameObject, lifeTime);
+        // Phase 1 fix: NO Destroy(gameObject, lifeTime) here anymore.
+        // That fixed 5-second timer was the boundary-vanish bug: a ball hit
+        // late, or rolling slowly to the boundary, was deleted mid-flight
+        // when the timer expired, regardless of what the ball was doing.
+        // BallHitPhysics (added at runtime by CricketMatchManager) now owns
+        // cleanup: a live ball lives until it is dead, caught, bowled, or
+        // has crossed the boundary and settled, with a stale-ball fallback.
     }
 
     private void OnDestroy()
