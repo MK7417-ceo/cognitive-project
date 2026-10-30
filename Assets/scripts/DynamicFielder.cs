@@ -65,12 +65,21 @@ public class DynamicFielder : MonoBehaviour
     {
         if (ball == null || ball.State == BallHitPhysics.BallState.Dead) return;
 
+        // Same Law 33 rule as the keeper: capture before MarkCaught().
+        bool caughtOut = ball.WouldBeCaughtOut;
         bool runOut = ball.MarkCaught();
         ball.transform.SetParent(handTarget, true);
 
         if (CricketMatchManager.Instance != null)
-            CricketMatchManager.Instance.ShowMessage(runOut ? "RUN OUT!" : "FIELDED!", Color.green);
-        Debug.Log($"DynamicFielder: {gameObject.name} fielded the ball.");
+        {
+            if (runOut)
+                CricketMatchManager.Instance.ShowMessage("RUN OUT!", Color.green);
+            else if (caughtOut)
+                CricketMatchManager.Instance.ShowMessage("CAUGHT!", Color.green);
+            else
+                CricketMatchManager.Instance.ShowMessage("FIELDED!", Color.green);
+        }
+        Debug.Log($"DynamicFielder: {gameObject.name} gathered the ball. caughtOut={caughtOut} runOut={runOut}");
         targetBall = null;
     }
 }
