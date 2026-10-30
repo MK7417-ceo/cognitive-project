@@ -95,15 +95,27 @@ public class WicketKeeper : MonoBehaviour
 
     void Catch(BallHitPhysics ball)
     {
+        // Capture BEFORE MarkCaught(): it sets the ball Dead, after which
+        // WouldBeCaughtOut can no longer be read. A Flying delivery the
+        // keeper gathers untouched is a dot ball (Law 33), not a dismissal.
+        bool caughtOut = ball.WouldBeCaughtOut;
         bool runOut = ball.MarkCaught();
         ball.transform.SetParent(gloveAnchor, true);
         heldBall = ball;
         holdTimer = 1.5f;
 
         if (CricketMatchManager.Instance != null)
-            CricketMatchManager.Instance.ShowMessage(
-                runOut ? "RUN OUT BY THE KEEPER!" : "CAUGHT BY THE KEEPER!", Color.cyan);
-        Debug.Log("WicketKeeper: caught the ball.");
+        {
+            if (runOut)
+                CricketMatchManager.Instance.ShowMessage("RUN OUT BY THE KEEPER!", Color.cyan);
+            else if (caughtOut)
+                CricketMatchManager.Instance.ShowMessage("CAUGHT BY THE KEEPER!", Color.cyan);
+            else
+                // Training feedback only: an untouched delivery gathered by
+                // the keeper is a dot ball. Never show "CAUGHT" for it.
+                CricketMatchManager.Instance.ShowMessage("DOT BALL", Color.white, 1.0f);
+        }
+        Debug.Log($"WicketKeeper: gathered the ball. caughtOut={caughtOut} runOut={runOut}");
     }
 
     static BallHitPhysics FindLiveBall()
