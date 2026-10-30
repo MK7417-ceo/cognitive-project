@@ -28,12 +28,17 @@ public class OverManager : MonoBehaviour
         if (bowlers == null || bowlers.Length == 0)
         {
             var allManagers = FindObjectsByType<BowlingManager>(FindObjectsInactive.Include);
-            if (allManagers != null && allManagers.Length > 0)
+            var real = new System.Collections.Generic.List<GameObject>();
+            if (allManagers != null)
             {
-                bowlers = new GameObject[allManagers.Length];
-                for (int i = 0; i < allManagers.Length; i++)
-                    bowlers[i] = allManagers[i].gameObject;
+                foreach (var m in allManagers)
+                {
+                    if (m == null) continue;
+                    if (m.gameObject.name.StartsWith("Fielder_")) continue;
+                    real.Add(m.gameObject);
+                }
             }
+            if (real.Count > 0) bowlers = real.ToArray();
         }
 
         // Disable all duplicate bowlers on Awake immediately, then activate only one.

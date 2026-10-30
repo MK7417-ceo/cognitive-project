@@ -197,7 +197,14 @@ public class VRLobbyManager : MonoBehaviour
         bowlers.Clear();
         foreach (var b in FindObjectsByType<BowlingManager>(FindObjectsInactive.Include))
         {
-            if (b != null && !bowlers.Contains(b)) bowlers.Add(b);
+            if (b == null || bowlers.Contains(b)) continue;
+            // Fielder clones are copies of the bowler template and also
+            // carry a BowlingManager component. They are NOT bowlers:
+            // enabling them would turn fielders into bowlers and break
+            // the match. Only real scene bowlers belong here.
+            if (b.gameObject.name.StartsWith("Fielder_")) continue;
+            if (b.transform.parent != null && b.transform.parent.name == "NineHumanFielders") continue;
+            bowlers.Add(b);
         }
     }
 
