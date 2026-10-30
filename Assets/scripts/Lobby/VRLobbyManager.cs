@@ -15,11 +15,25 @@ using UnityEngine.UI;
 ///   Bowl trigger has already fired.
 /// - Flow: Auth panel -> Lobby panel -> Match / Nets / Training info /
 ///   How to Play. Sign Out returns to the Auth panel.
+/// - PAVILION LOCATION (fixed Oct 30, after a Play screenshot showed the
+///   old bug): the pavilion is NOT built at the player's start position.
+///   The old code anchored lobbyRoot to the camera, and the camera starts
+///   at the batsman — so the whole dressing room, floor and ceiling landed
+///   ON TOP of the pitch, over the stumps. Real cricket pavilions sit at
+///   the EDGE of the ground, beyond the boundary, facing the pitch — so
+///   this code now places the pavilion pavilionSideDistance metres to the
+///   SIDE of the pitch centre (perpendicular to the pitch direction),
+///   facing back toward the pitch, and teleports the player rig there
+///   while the lobby is open. Walk Out teleports the rig back to the
+///   batsman position it saved before leaving. The glass wall now looks
+///   onto the REAL stadium — the old fake field/pitch/floodlights drawn
+///   in front of the glass are deleted, because they painted a second
+///   field over the real one.
 /// - The lobby is a WorldSpace panel inside a preview-matched Pavilion
 ///   dressing room built ONLY from code primitives and code-made
 ///   materials — no external models, no scene edits needed. It matches
 ///   the approved preview (Option A): kit wall with detailed lockers on
-///   the left, a glass wall with a floodlit stadium behind it in front,
+///   the left, a glass wall looking onto the real stadium in front,
 ///   a sofa and team-talk board on the right and left walls, a wooden
 ///   floor and bench in the middle, and ceiling lights. It hides when
 ///   the match starts so it never blocks the pitch. A real art pass
@@ -62,6 +76,13 @@ public class VRLobbyManager : MonoBehaviour
     [Tooltip("Optional: parent the lobby canvas under this transform (a real pavilion room) instead of the auto shell.")]
     public Transform pavilionAnchor;
 
+    [Header("Pavilion location (real-world rule)")]
+    [Tooltip("Distance from the pitch centre to the pavilion, sideways from the pitch. Tune in the Inspector if the pavilion lands inside the stands in your scene scale — the pitch must stay clear of it.")]
+    public float pavilionSideDistance = 30f;
+
+    [Tooltip("True = pavilion on the right side of the pitch when facing the bowler, like a real ground's main pavilion. False = left side.")]
+    public bool pavilionOnRightSide = true;
+
     public enum LobbyState { Auth, Lobby, Match, PausedInLobby }
     public LobbyState State { get; private set; } = LobbyState.Auth;
 
@@ -83,6 +104,18 @@ public class VRLobbyManager : MonoBehaviour
     private GameObject newPlayerPanel;
     private List<BowlingManager> bowlers = new List<BowlingManager>();
     private bool bowlersWereActive;
+
+    // Player-rig teleport state: lobby lives at the boundary, the match
+    // lives at the batsman. Both positions are saved and restored exactly.
+    private Transform playerRig;
+    private Vector3 rigStartPos;
+    private Quaternion rigStartRot;
+    private Vector3 rigMatchPos;
+    private Quaternion rigMatchRot;
+    private bool hasMatchRigPos;
+    private Vector3 pavilionPos;
+    private Quaternion pavilionRot;
+    private float pavilionGroundY;
 
     void Awake()
     {
@@ -142,6 +175,7 @@ public class VRLobbyManager : MonoBehaviour
     {
         CollectBowlers();
         Time.timeScale = 1f;
+        RestorePlayerRigToMatch();
         foreach (var b in bowlers)
         {
             if (b != null) b.gameObject.SetActive(true);
@@ -155,6 +189,11 @@ public class VRLobbyManager : MonoBehaviour
     public void ReturnToLobby()
     {
         // Pause, do not deactivate bowlers (see header for why).
+        // Save where the batsman camera is now, then walk the player
+        // back into the pavilion — the lobby panel is 30 m away at the
+        // boundary, it is not visible from the pitch.
+        SavePlayerRigAsMatch();
+        MovePlayerRigToPavilion();
         Time.timeScale = 0f;
         if (lobbyRoot != null) lobbyRoot.SetActive(true);
         if (lobbyCanvas != null) lobbyCanvas.gameObject.SetActive(true);
@@ -165,6 +204,7 @@ public class VRLobbyManager : MonoBehaviour
     public void ResumeMatch()
     {
         Time.timeScale = 1f;
+        RestorePlayerRigToMatch();
         if (lobbyRoot != null) lobbyRoot.SetActive(false);
         if (lobbyCanvas != null) lobbyCanvas.gameObject.SetActive(false);
         State = LobbyState.Match;
@@ -227,6 +267,68 @@ public class VRLobbyManager : MonoBehaviour
         if (newPlayerPanel != null) newPlayerPanel.SetActive(true);
     }
 
+
+    // ---------- Pavilion placement: boundary, not pitch ----------
+
+    private Transform FindPlayerRig()
+    {
+        // Scene name is "XR Origin (VR)" — the old Find("XR Origin")
+        // never matched it, which is one reason the old ground height
+        // was wrong. Fall back to the plain name, then to the camera.
+        GameObject xr = GameObject.Find("XR Origin (VR)");
+        if (xr == null) xr = GameObject.Find("XR Origin");
+        if (xr != null) return xr.transform;
+        Camera cam = Camera.main;
+        if (cam == null) cam = FindAnyObjectByType<Camera>();
+        return cam != null ? cam.transform : null;
+    }
+
+    private bool RigIsXROrigin()
+    {
+        return playerRig != null && playerRig.name.Contains("XR Origin");
+    }
+
+    private void MovePlayerRigToPavilion()
+    {
+        if (playerRig == null) return;
+        Vector3 pos = pavilionPos;
+        if (RigIsXROrigin())
+        {
+            // Keep the rig's own height (its camera offset adds eye
+            // height on top). Only the horizontal position changes.
+            pos.y = playerRig.position.y;
+        }
+        else
+        {
+            pos.y = pavilionGroundY + 1.6f;
+        }
+        playerRig.position = pos;
+        playerRig.rotation = pavilionRot;
+    }
+
+    private void SavePlayerRigAsMatch()
+    {
+        if (playerRig == null) return;
+        rigMatchPos = playerRig.position;
+        rigMatchRot = playerRig.rotation;
+        hasMatchRigPos = true;
+    }
+
+    private void RestorePlayerRigToMatch()
+    {
+        if (playerRig == null) return;
+        if (hasMatchRigPos)
+        {
+            playerRig.position = rigMatchPos;
+            playerRig.rotation = rigMatchRot;
+        }
+        else
+        {
+            playerRig.position = rigStartPos;
+            playerRig.rotation = rigStartRot;
+        }
+    }
+
     // ---------- UI construction (runtime, no scene edits) ----------
 
     private void BuildLobby()
@@ -234,21 +336,41 @@ public class VRLobbyManager : MonoBehaviour
         Camera cam = Camera.main;
         if (cam == null) cam = FindAnyObjectByType<Camera>();
 
-        // Frame: a root at the player's ground position, facing where the
-        // player looks. All lobby objects are children of this root.
+        // Frame: pitch centre = where the player starts (the batsman).
+        // The pavilion is NOT there. Real pavilions sit at the boundary
+        // edge, sideways from the pitch, facing it — so place the root
+        // pavilionSideDistance metres to the side of the pitch centre,
+        // and rotate it so its +Z (glass wall, panel) looks back at the
+        // pitch. Ground is y = 0 in SampleScene (stumps, bowler, field
+        // all sit at y ~ 0); the old code used the XR Origin height as
+        // ground, which floated the floor above the field.
         Vector3 playerPos = cam != null ? cam.transform.position : Vector3.zero;
         Vector3 forward = cam != null ? cam.transform.forward : Vector3.forward;
         forward.y = 0f;
         if (forward.sqrMagnitude < 0.01f) forward = Vector3.forward;
         forward.Normalize();
         float groundY = 0f;
-        Transform xrOrigin = GameObject.Find("XR Origin")?.transform;
-        if (xrOrigin != null) groundY = xrOrigin.position.y;
-        else if (cam != null && cam.transform.parent != null) groundY = cam.transform.parent.position.y;
+        Vector3 pitchCentre = new Vector3(playerPos.x, groundY, playerPos.z);
+        Vector3 side = Vector3.Cross(Vector3.up, forward).normalized;
+        if (!pavilionOnRightSide) side = -side;
+        Vector3 toPitch = -side;
+        pavilionPos = pitchCentre + side * pavilionSideDistance;
+        pavilionPos.y = groundY;
+        pavilionGroundY = groundY;
+        pavilionRot = Quaternion.LookRotation(toPitch, Vector3.up);
 
         lobbyRoot = new GameObject("PavilionLobby");
-        lobbyRoot.transform.position = new Vector3(playerPos.x, groundY, playerPos.z);
-        lobbyRoot.transform.rotation = Quaternion.LookRotation(forward, Vector3.up);
+        lobbyRoot.transform.position = pavilionPos;
+        lobbyRoot.transform.rotation = pavilionRot;
+
+        // Player starts inside the pavilion, not on the pitch.
+        playerRig = FindPlayerRig();
+        if (playerRig != null)
+        {
+            rigStartPos = playerRig.position;
+            rigStartRot = playerRig.rotation;
+        }
+        MovePlayerRigToPavilion();
 
         if (buildPavilionShell && pavilionAnchor == null)
             BuildPavilionShell();
@@ -385,7 +507,9 @@ public class VRLobbyManager : MonoBehaviour
     {
         // Preview-matched dressing room, in root space: player at the
         // origin, facing +Z. Panel sits at z = 1.6, so the glass wall at
-        // z = 2.6 sits behind the panel, and the stadium behind the glass.
+        // z = 2.6 sits behind the panel, and the REAL stadium is visible
+        // through the glass. No fake field is drawn here — the old fake
+        // field/pitch painted a second ground over the real pitch.
         // Everything here is a code primitive — no model files are needed.
         // Colours use the deck/preview palette: stadium green, wood brown,
         // cream, amber, deep red sofa. All objects are children of
@@ -408,12 +532,10 @@ public class VRLobbyManager : MonoBehaviour
         MakeBox("WalkOutDoorRight", new Vector3(0.55f, 1.6f, 2.55f), new Vector3(0.12f, 2.9f, 0.12f), new Color(0.91f, 0.64f, 0.09f));
         MakeBox("WalkOutDoorHandle", new Vector3(0.35f, 1.1f, 2.52f), new Vector3(0.08f, 0.3f, 0.08f), new Color(0.91f, 0.64f, 0.09f));
 
-        // Stadium behind the glass: green field, cream pitch strip,
-        // and two floodlight poles with glowing heads.
-        MakeBox("StadiumField", new Vector3(0f, 0.05f, 6.5f), new Vector3(24f, 0.1f, 8f), new Color(0.10f, 0.38f, 0.20f));
-        MakeBox("StadiumPitch", new Vector3(0f, 0.12f, 6.5f), new Vector3(2.2f, 0.05f, 6f), new Color(0.85f, 0.78f, 0.55f));
-        MakeFloodlight("FloodlightLeft", -5f);
-        MakeFloodlight("FloodlightRight", 5f);
+        // No fake stadium here on purpose: the glass looks onto the
+        // real SampleScene ground. (Oct 30 fix — the old fake field and
+        // pitch strip sat on top of the real pitch and looked like a
+        // green slab dumped on the ground.)
 
         // Kit wall on the left: two detailed lockers (body, door, handle).
         MakeLocker("Locker1", -3.6f, new Color(0.30f, 0.35f, 0.45f));
@@ -449,12 +571,6 @@ public class VRLobbyManager : MonoBehaviour
         MakeBox(name, new Vector3(x, 1.0f, 2.2f), new Vector3(0.9f, 2f, 0.55f), bodyColor);
         MakeBox(name + "Door", new Vector3(x, 1.0f, 1.91f), new Vector3(0.7f, 1.7f, 0.05f), new Color(0.45f, 0.50f, 0.60f));
         MakeBox(name + "Handle", new Vector3(x + 0.25f, 1.0f, 1.87f), new Vector3(0.06f, 0.25f, 0.06f), new Color(0.91f, 0.64f, 0.09f));
-    }
-
-    private void MakeFloodlight(string name, float x)
-    {
-        MakeCylinder(name + "Pole", new Vector3(x, 2.0f, 5.5f), new Vector3(0.25f, 4f, 0.25f), new Color(0.25f, 0.25f, 0.25f));
-        MakeEmissiveBox(name + "Head", new Vector3(x, 4.1f, 5.5f), new Vector3(0.9f, 0.6f, 0.2f));
     }
 
     private void MakeBox(string name, Vector3 localPos, Vector3 size, Color color)
