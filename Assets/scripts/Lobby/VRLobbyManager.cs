@@ -455,11 +455,19 @@ public class VRLobbyManager : MonoBehaviour
         if (buildPavilionShell && pavilionAnchor == null)
             BuildPavilionShell();
 
-        // Canvas: WorldSpace in VR, ScreenSpaceOverlay as a PC fallback.
+        // Canvas: ALWAYS ScreenSpaceOverlay for Auth/Lobby.
+        // WHY nothing was coming before: the panel was WorldSpace,
+        // 62 m away in the pavilion, but the Game view camera is a
+        // stadium camera looking at the pitch, not the XR camera in
+        // the pavilion - so the panel was off-screen and invisible.
+        // ScreenSpaceOverlay puts Auth/Lobby on the screen itself,
+        // no matter which camera is active. The pavilion building
+        // itself still stays in the world at 62 m, visible from
+        // Spider Cam. On Start, this canvas is hidden.
         var canvasGo = new GameObject("LobbyCanvas");
         canvasGo.transform.SetParent(pavilionAnchor != null ? pavilionAnchor : lobbyRoot.transform, false);
         lobbyCanvas = canvasGo.AddComponent<Canvas>();
-        if (cam != null)
+        if (false)
         {
             lobbyCanvas.renderMode = RenderMode.WorldSpace;
             var rt = canvasGo.GetComponent<RectTransform>();
