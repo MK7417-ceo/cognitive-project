@@ -22,6 +22,8 @@ using UnityEngine.UI;
 ///   ON TOP of the pitch, over the stumps. Real cricket pavilions sit at
 ///   the EDGE of the ground, beyond the boundary, facing the pitch — so
 ///   this code now places the pavilion pavilionSideDistance metres to the
+///   OUTSIDE the boundary (boundaryRadius + clearance), never on the
+///   field and never overlapping any stadium structure, to the
 ///   SIDE of the pitch centre (perpendicular to the pitch direction),
 ///   facing back toward the pitch, and teleports the player rig there
 ///   while the lobby is open. Walk Out teleports the rig back to the
@@ -77,8 +79,8 @@ public class VRLobbyManager : MonoBehaviour
     public Transform pavilionAnchor;
 
     [Header("Pavilion location (real-world rule)")]
-    [Tooltip("Distance from the pitch centre to the pavilion, sideways from the pitch. Tune in the Inspector if the pavilion lands inside the stands in your scene scale — the pitch must stay clear of it.")]
-    public float pavilionSideDistance = 30f;
+    [Tooltip("Minimum distance from the pitch centre to the pavilion, sideways from the pitch. Default 62 m puts it OUTSIDE the 55 m boundary (CricketMatchManager.boundaryRadius). Never place it inside the boundary, and never let it overlap the stadium structure — tune only if it lands inside the stands.")]
+    public float pavilionSideDistance = 62f;
 
     [Tooltip("True = pavilion on the right side of the pitch when facing the bowler, like a real ground's main pavilion. False = left side.")]
     public bool pavilionOnRightSide = true;
@@ -354,7 +356,20 @@ public class VRLobbyManager : MonoBehaviour
         Vector3 side = Vector3.Cross(Vector3.up, forward).normalized;
         if (!pavilionOnRightSide) side = -side;
         Vector3 toPitch = -side;
-        pavilionPos = pitchCentre + side * pavilionSideDistance;
+        // Pavilion MUST sit OUTSIDE the boundary, never on the field and
+        // never overlapping the stadium structure. The game's boundary is
+        // CricketMatchManager.boundaryRadius (55 m from pitch centre), so
+        // the pavilion centre is placed at boundary + 7 m clearance: its
+        // nearest edge (3 m, half the 6 m pavilion depth) is still 4 m
+        // beyond the boundary rope. If no match manager exists yet, fall
+        // back to pavilionSideDistance, which defaults to 62 m for the
+        // same reason. The pavilion is a separate root — it moves, adds,
+        // or deletes no existing stadium object.
+        float sideDistance = pavilionSideDistance;
+        var matchMgr = FindAnyObjectByType<CricketMatchManager>();
+        if (matchMgr != null && matchMgr.boundaryRadius > 0f)
+            sideDistance = Mathf.Max(sideDistance, matchMgr.boundaryRadius + 7f);
+        pavilionPos = pitchCentre + side * sideDistance;
         pavilionPos.y = groundY;
         pavilionGroundY = groundY;
         pavilionRot = Quaternion.LookRotation(toPitch, Vector3.up);
