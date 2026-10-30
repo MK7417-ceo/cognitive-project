@@ -141,10 +141,8 @@ public class CameraSwitcher : MonoBehaviour
         string camLabel = cameraNames[index];
         Debug.Log($"📷 Switched to Camera: {camLabel}");
 
-        if (CricketMatchManager.Instance != null)
-        {
-            CricketMatchManager.Instance.ShowMessage($"CAM {camLabel}", Color.yellow, 1.8f);
-        }
+        // No centre-screen camera label: the old big yellow CAM text covered
+        // the pitch. Camera name stays in the Console log only.
     }
 
     /// <summary>
