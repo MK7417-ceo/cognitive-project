@@ -44,6 +44,17 @@ public class BallHitPhysics : MonoBehaviour
     void Awake()
     {
         rb = GetComponent<Rigidbody>();
+        // Ball was a tiny white dot and vanished against sky/grass.
+        // A short red trail makes every delivery readable in flight
+        // without changing ball mass, size or physics.
+        if (GetComponent<TrailRenderer>() == null)
+        {
+            var trail = gameObject.AddComponent<TrailRenderer>();
+            trail.time = 0.5f;
+            trail.startWidth = 0.06f;
+            trail.endWidth = 0.01f;
+            trail.material = new Material(Shader.Find("Sprites/Default")) { color = Color.red };
+        }
     }
 
     void OnDestroy()
