@@ -19,6 +19,13 @@ public class BallHitPhysics : MonoBehaviour
     public BallState State { get; private set; } = BallState.Flying;
     public bool CanCallRun => State == BallState.Hit && !boundaryResolved && !outcomeRecorded;
 
+    /// <summary>
+    /// Law 33 (Caught): a catch is only a dismissal when the ball was hit
+    /// by the VR player's bat and has NOT bounced since that hit. Capture
+    /// this BEFORE MarkCaught(), because MarkCaught() sets State to Dead.
+    /// </summary>
+    public bool WouldBeCaughtOut => State == BallState.Hit && bounces == 0;
+
     /// <summary>True once this hit ball has crossed the boundary.</summary>
     public bool IsBoundaryResolved { get { return boundaryResolved; } }
 
