@@ -17,6 +17,12 @@ public class BallTrackingCamera : MonoBehaviour
     [Tooltip("Offset relative to the ball in tracking mode")]
     public Vector3 followOffset = new Vector3(3.0f, 2.5f, -4.0f);
 
+    [Tooltip("Distance behind the ball's travel direction")]
+    public float trackingDistance = 5f;
+
+    [Tooltip("How far ahead of the ball the camera aims, in seconds")]
+    public float lookAheadTime = 0.2f;
+
     [Tooltip("Field of View when tracking the ball")]
     public float trackingFov = 45f;
     public float idleFov = 60f;
@@ -50,6 +56,15 @@ public class BallTrackingCamera : MonoBehaviour
 
     void FindActiveBall()
     {
+        // Prefer the ball currently owned by the delivery system so the camera
+        // follows the live delivery or its hit-ball replacement consistently.
+        GameObject activeBall = BallThrower.ActiveMatchBall;
+        if (activeBall != null && activeBall.activeInHierarchy)
+        {
+            currentTarget = activeBall.transform;
+            return;
+        }
+
         // Check if existing target is still valid
         if (currentTarget != null && currentTarget.gameObject.activeInHierarchy)
             return;
@@ -74,20 +89,27 @@ public class BallTrackingCamera : MonoBehaviour
     void TrackActiveBall()
     {
         Vector3 ballPos = currentTarget.position;
+        Rigidbody ballBody = currentTarget.GetComponent<Rigidbody>();
+        Vector3 velocity = ballBody != null ? ballBody.linearVelocity : Vector3.zero;
+        Vector3 travelDirection = velocity.sqrMagnitude > 0.25f
+            ? velocity.normalized
+            : currentTarget.forward;
 
-        // Smoothly orient camera towards the ball
-        Vector3 directionToBall = (ballPos - transform.position).normalized;
-        if (directionToBall.sqrMagnitude > 0.001f)
-        {
-            Quaternion targetRotation = Quaternion.LookRotation(directionToBall, Vector3.up);
-            transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, Time.deltaTime * lookDamping);
-        }
-
-        // Adjust position dynamically to keep both ball and context visible
-        Vector3 desiredPosition = ballPos + followOffset;
-        if (desiredPosition.y < 0.8f) desiredPosition.y = 0.8f; // Stay above ground
+        // Stay behind the ball and aim slightly ahead to show where it is going.
+        Vector3 desiredPosition = ballPos - travelDirection * trackingDistance + Vector3.up * followOffset.y;
+        if (velocity.sqrMagnitude <= 0.25f)
+            desiredPosition = ballPos + followOffset;
+        if (desiredPosition.y < 0.8f) desiredPosition.y = 0.8f;
 
         transform.position = Vector3.Lerp(transform.position, desiredPosition, Time.deltaTime * positionDamping);
+
+        Vector3 lookPoint = ballPos + velocity * lookAheadTime;
+        Vector3 directionToLookPoint = lookPoint - transform.position;
+        if (directionToLookPoint.sqrMagnitude > 0.001f)
+        {
+            Quaternion targetRotation = Quaternion.LookRotation(directionToLookPoint, Vector3.up);
+            transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, Time.deltaTime * lookDamping);
+        }
 
         if (cam != null)
         {

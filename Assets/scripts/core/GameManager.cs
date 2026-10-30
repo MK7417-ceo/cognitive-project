@@ -14,9 +14,12 @@ public class GameManager : MonoBehaviour
     public int TotalSessions = 0;
     
     [Header("Module Data")]
-    public Dictionary<string, List<float>> ModuleScores = new Dictionary<string, List<float>>();
-    public Dictionary<string, List<float>> ModuleReactionTimes = new Dictionary<string, List<float>>();
-    public Dictionary<string, List<float>> ModuleAccuracy = new Dictionary<string, List<float>>();
+    // Runtime dictionaries are persisted through JSON below, not Unity's
+    // unsupported dictionary serializer. Properties keep them out of the
+    // Inspector while preserving the same JSON field names.
+    public Dictionary<string, List<float>> ModuleScores { get; private set; } = new Dictionary<string, List<float>>();
+    public Dictionary<string, List<float>> ModuleReactionTimes { get; private set; } = new Dictionary<string, List<float>>();
+    public Dictionary<string, List<float>> ModuleAccuracy { get; private set; } = new Dictionary<string, List<float>>();
     
     [Header("Session Info")]
     public bool IsTrainingActive = false;
@@ -303,9 +306,9 @@ public class PlayerData
     public int playerLevel = 1;
     public int totalSessions = 0;
     public string lastPlayed = "";
-    public Dictionary<string, List<float>> moduleScores = new Dictionary<string, List<float>>();
-    public Dictionary<string, List<float>> moduleReactionTimes = new Dictionary<string, List<float>>();
-    public Dictionary<string, List<float>> moduleAccuracy = new Dictionary<string, List<float>>();
+    public Dictionary<string, List<float>> moduleScores { get; set; } = new Dictionary<string, List<float>>();
+    public Dictionary<string, List<float>> moduleReactionTimes { get; set; } = new Dictionary<string, List<float>>();
+    public Dictionary<string, List<float>> moduleAccuracy { get; set; } = new Dictionary<string, List<float>>();
 }
 
 [System.Serializable]

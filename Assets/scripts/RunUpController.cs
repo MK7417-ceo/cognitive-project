@@ -1,4 +1,5 @@
 using UnityEngine;
+using System;
 
 /// <summary>
 /// Moves the bowler from the run-up start to the crease.
@@ -16,6 +17,7 @@ public class RunUpController : MonoBehaviour
 
     private Vector3 startPosition;
     private Quaternion startRotation;
+    public event Action RunUpReachedCrease;
 
     void Start()
     {
@@ -43,6 +45,7 @@ public class RunUpController : MonoBehaviour
                 // Reached the crease: stop and wait. BowlingManager decides
                 // when the next ball starts (it calls BeginRunUp).
                 isRunning = false;
+                RunUpReachedCrease?.Invoke();
             }
         }
     }
