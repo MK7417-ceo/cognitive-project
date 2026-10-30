@@ -19,16 +19,26 @@ using UnityEngine.UI;
 ///   old bug): the pavilion is NOT built at the player's start position.
 ///   The old code anchored lobbyRoot to the camera, and the camera starts
 ///   at the batsman — so the whole dressing room, floor and ceiling landed
-///   ON TOP of the pitch, over the stumps. Real cricket pavilions sit at
-///   the EDGE of the ground, beyond the boundary, facing the pitch — so
-///   this code now places the pavilion pavilionSideDistance metres to the
-///   SIDE of the pitch centre (perpendicular to the pitch direction),
-///   facing back toward the pitch, and teleports the player rig there
-///   while the lobby is open. Walk Out teleports the rig back to the
-///   batsman position it saved before leaving. The glass wall now looks
-///   onto the REAL stadium — the old fake field/pitch/floodlights drawn
-///   in front of the glass are deleted, because they painted a second
-///   field over the real one.
+///   ON TOP of the pitch, over the stumps. That was wrong, and the later
+///   30 m side placement was also wrong: the game's boundary is 55 m
+///   (CricketMatchManager.boundaryRadius), so 30 m was still INSIDE the
+///   field. REAL-WORLD PAVILION RULE (user directive, Oct 30): a real
+///   pavilion is a building OUTSIDE the boundary rope, on the side of
+///   the ground, facing the pitch — never on the pitch, never in the
+///   middle of the outfield, never overlapping the rope, the stands or
+///   the pitch. This code therefore places the pavilion centre
+///   max(pavilionSideDistance = 62 m, boundaryRadius + 7 m) sideways
+///   from the TRUE pitch centre (midpoint between batsman and bowler,
+///   not the batsman camera position), facing back toward the pitch.
+///   Numbers, pitch centre at 0 m: pavilion centre 62 m, floor front
+///   edge 57.5 m (2.5 m beyond the 55 m rope), glass 59.4 m, panel
+///   60.4 m — all outside the rope, with a clear walkway gap, no
+///   overlap by construction. The pavilion BUILDING stays visible
+///   during a match like a real ground (only the lobby panel hides);
+///   Walk Out teleports the rig back to the batsman position it saved
+///   before leaving. The glass wall looks onto the REAL stadium — the
+///   old fake field/pitch/floodlights drawn in front of the glass are
+///   deleted, because they painted a second field over the real one.
 /// - The lobby is a WorldSpace panel inside a preview-matched Pavilion
 ///   dressing room built ONLY from code primitives and code-made
 ///   materials — no external models, no scene edits needed. It matches
@@ -78,7 +88,7 @@ public class VRLobbyManager : MonoBehaviour
 
     [Header("Pavilion location (real-world rule)")]
     [Tooltip("Distance from the pitch centre to the pavilion, sideways from the pitch. Tune in the Inspector if the pavilion lands inside the stands in your scene scale — the pitch must stay clear of it.")]
-    public float pavilionSideDistance = 30f;
+    public float pavilionSideDistance = 62f;
 
     [Tooltip("True = pavilion on the right side of the pitch when facing the bowler, like a real ground's main pavilion. False = left side.")]
     public bool pavilionOnRightSide = true;
@@ -181,7 +191,9 @@ public class VRLobbyManager : MonoBehaviour
             if (b != null) b.gameObject.SetActive(true);
         }
         if (isMatch && auth != null) auth.RecordSession();
-        if (lobbyRoot != null) lobbyRoot.SetActive(false);
+        // Real-world rule: the pavilion BUILDING stays visible during a
+        // match. Only the lobby panel hides. Hiding lobbyRoot used to
+        // make the whole building vanish when play started.
         if (lobbyCanvas != null) lobbyCanvas.gameObject.SetActive(false);
         State = LobbyState.Match;
     }
@@ -205,7 +217,7 @@ public class VRLobbyManager : MonoBehaviour
     {
         Time.timeScale = 1f;
         RestorePlayerRigToMatch();
-        if (lobbyRoot != null) lobbyRoot.SetActive(false);
+        // See StartBowling: building stays, only the panel hides.
         if (lobbyCanvas != null) lobbyCanvas.gameObject.SetActive(false);
         State = LobbyState.Match;
     }
@@ -350,11 +362,35 @@ public class VRLobbyManager : MonoBehaviour
         if (forward.sqrMagnitude < 0.01f) forward = Vector3.forward;
         forward.Normalize();
         float groundY = 0f;
+        // TRUE pitch centre: midpoint between batsman and bowler. The
+        // old code used the camera (batsman) position as "pitch centre",
+        // which shifted the pavilion ~10 m along the pitch. If no bowler
+        // is found, fall back to the camera direction only.
         Vector3 pitchCentre = new Vector3(playerPos.x, groundY, playerPos.z);
-        Vector3 side = Vector3.Cross(Vector3.up, forward).normalized;
+        Vector3 pitchDir = forward;
+        GameObject bowlerGo = GameObject.Find("Bowler");
+        if (bowlerGo != null)
+        {
+            Vector3 bowlerPos = bowlerGo.transform.position;
+            bowlerPos.y = groundY;
+            Vector3 batsmanPos = new Vector3(playerPos.x, groundY, playerPos.z);
+            float endDistance = Vector3.Distance(batsmanPos, bowlerPos);
+            if (endDistance >= 10f && endDistance <= 30f)
+            {
+                pitchCentre = (batsmanPos + bowlerPos) * 0.5f;
+                pitchDir = (bowlerPos - batsmanPos).normalized;
+            }
+        }
+        Vector3 side = Vector3.Cross(Vector3.up, pitchDir).normalized;
         if (!pavilionOnRightSide) side = -side;
         Vector3 toPitch = -side;
-        pavilionPos = pitchCentre + side * pavilionSideDistance;
+        // Boundary-aware distance: never inside the 55 m rope, even if
+        // someone lowers pavilionSideDistance in the Inspector.
+        float boundary = 55f;
+        if (CricketMatchManager.Instance != null)
+            boundary = CricketMatchManager.Instance.boundaryRadius;
+        float pavilionDistance = Mathf.Max(pavilionSideDistance, boundary + 7f);
+        pavilionPos = pitchCentre + side * pavilionDistance;
         pavilionPos.y = groundY;
         pavilionGroundY = groundY;
         pavilionRot = Quaternion.LookRotation(toPitch, Vector3.up);
@@ -513,7 +549,9 @@ public class VRLobbyManager : MonoBehaviour
         // Everything here is a code primitive — no model files are needed.
         // Colours use the deck/preview palette: stadium green, wood brown,
         // cream, amber, deep red sofa. All objects are children of
-        // lobbyRoot, so they hide with the lobby when a match starts.
+        // Shell objects are children of lobbyRoot, but the building is
+        // kept visible during a match: StartBowling/ResumeMatch hide only
+        // the lobby canvas, never the shell (real-world rule).
 
         // Room: wooden floor, ceiling, side walls.
         MakeBox("PavilionFloor", new Vector3(0f, 0.02f, 1.5f), new Vector3(10f, 0.1f, 6f), new Color(0.42f, 0.28f, 0.16f));
