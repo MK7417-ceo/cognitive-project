@@ -355,7 +355,6 @@ public class BowlingManager : MonoBehaviour
                 ApplyBowlerType();
             }
         }
-        }
 
         waitingForNextBall = false;
     }
