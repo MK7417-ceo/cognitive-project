@@ -635,6 +635,16 @@ public class VRLobbyManager : MonoBehaviour
         MakeBox("BoundaryGateRight", new Vector3(1.1f, 1.1f, 7.0f), new Vector3(0.2f, 2.2f, 0.2f), new Color(0.91f, 0.64f, 0.09f));
         MakeBox("BoundaryGateTop", new Vector3(0f, 2.25f, 7.0f), new Vector3(2.4f, 0.2f, 0.2f), new Color(0.91f, 0.64f, 0.09f));
 
+        // VISIBILITY: a 3.2 m room inside the stands bowl is hidden
+        // under the seating tiers, which is why the pavilion was not
+        // visible from the ground or from above. Add a tall roof block
+        // on top of the room, rising above the seats, so the pavilion
+        // is unmissable from the pitch and from Spider Cam.
+        MakeBox("PavilionRoof", new Vector3(0f, 5.2f, 1.5f), new Vector3(12f, 0.6f, 8f), new Color(0.06f, 0.23f, 0.18f));
+        MakeBox("PavilionRoofTrim", new Vector3(0f, 5.55f, 1.5f), new Vector3(12.2f, 0.15f, 8.2f), new Color(0.91f, 0.64f, 0.09f));
+        MakeBox("PavilionRoofPostLeft", new Vector3(-5f, 4.2f, 1.5f), new Vector3(0.3f, 2f, 0.3f), new Color(0.30f, 0.20f, 0.12f));
+        MakeBox("PavilionRoofPostRight", new Vector3(5f, 4.2f, 1.5f), new Vector3(0.3f, 2f, 0.3f), new Color(0.30f, 0.20f, 0.12f));
+
         // Ceiling lights: glowing strips plus two real point lights
         // (no shadows, low count, so VR performance stays safe).
         MakeEmissiveBox("CeilingLightLeft", new Vector3(-2f, 3.18f, 1.5f), new Vector3(1.0f, 0.06f, 0.3f));
