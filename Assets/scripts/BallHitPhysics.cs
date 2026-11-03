@@ -48,9 +48,34 @@ public class BallHitPhysics : MonoBehaviour
 
     public BowlingManager DeliveringBowler { get; set; }
 
+    Vector3 lastVelocity;
+    Collider ballCollider;
+
+    void FixedUpdate()
+    {
+        if (rb != null && !rb.isKinematic)
+            lastVelocity = rb.linearVelocity;
+    }
+
     void Awake()
     {
         rb = GetComponent<Rigidbody>();
+        // Real ground bounce: ball material 0.75 bounciness, Maximum
+        // combine, so the bounce does NOT depend on the stadium mesh
+        // having a physics material (its MeshCollider material is empty,
+        // which was flattening every bounce to ~0.3). Outfield bounce
+        // now behaves like a real cricket ball off grass/pitch.
+        ballCollider = GetComponent<Collider>();
+        if (ballCollider != null)
+        {
+            var mat = new PhysicMaterial("BallGroundBounce");
+            mat.bounciness = 0.75f;
+            mat.dynamicFriction = 0.4f;
+            mat.staticFriction = 0.4f;
+            mat.bounceCombine = PhysicMaterialCombine.Maximum;
+            mat.frictionCombine = PhysicMaterialCombine.Average;
+            ballCollider.material = mat;
+        }
         // Ball was a tiny white dot and vanished against sky/grass.
         // A short red trail makes every delivery readable in flight
         // without changing ball mass, size or physics.
@@ -114,6 +139,35 @@ public class BallHitPhysics : MonoBehaviour
                 HandleBatContact(batTracker, cp.point, cp.normal);
                 if (State != BallState.Flying) return; // hit or blocked, done
                 // If the bat was still, fall through: ball passes (leave/miss).
+            }
+        }
+
+        // WALL FIX (user-reported): a delivery was hitting something
+        // in mid-pitch (a humanoid, a panel, a sightscreen, a stands
+        // mesh wall) and bouncing back before it ever reached the
+        // batsman. A delivery must ONLY be stopped by: bat, stumps,
+        // or the ground. Any other solid hit while Flying is NOT a
+        // wall - restore the pre-collision velocity and ignore that
+        // collider for this ball, so the ball reaches the batsman.
+        // This does NOT affect Hit balls: fielding/catching after a
+        // shot still works normally.
+        if (State == BallState.Flying && collision.contactCount > 0)
+        {
+            // Stumps are NOT a wall: a solid stump hit below is
+            // bowled, so never ignore it here.
+            var solidStumps = collision.gameObject.GetComponentInParent<StumpsPhysics>();
+            bool isGround = false;
+            foreach (var cp in collision.contacts)
+                if (cp.normal.y > 0.5f) { isGround = true; break; }
+            if (!isGround && solidStumps == null)
+            {
+                var otherCol = collision.collider;
+                if (otherCol != null && ballCollider != null)
+                    Physics.IgnoreCollision(ballCollider, otherCol, true);
+                if (rb != null && lastVelocity.sqrMagnitude > 0.01f)
+                    rb.linearVelocity = lastVelocity;
+                Debug.Log($"BallHitPhysics: ignored non-pitch obstacle '{collision.gameObject.name}' mid-flight, ball continues to batsman.");
+                return;
             }
         }
 

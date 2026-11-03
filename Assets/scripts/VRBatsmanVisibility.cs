@@ -36,8 +36,18 @@ public static class VRBatsmanVisibility
             foreach (var pm in FindObjectsByType<PlayerMovement>(FindObjectsInactive.Exclude))
             {
                 if (pm == null) continue;
+                // Batsman model has NO work: no render, no keyboard
+                // movement, no animator, and NO collider - so it can
+                // never again act as a wall that stops the ball before
+                // it reaches the VR player. Bat logic lives on the
+                // separate bat object, so it is untouched.
+                pm.enabled = false;
                 foreach (var rend in pm.GetComponentsInChildren<Renderer>(true))
                     rend.enabled = false;
+                foreach (var col in pm.GetComponentsInChildren<Collider>(true))
+                    col.enabled = false;
+                foreach (var anim in pm.GetComponentsInChildren<Animator>(true))
+                    anim.enabled = false;
             }
         }
 

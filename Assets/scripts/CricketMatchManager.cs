@@ -301,6 +301,19 @@ public class CricketMatchManager : MonoBehaviour
         scoreRect.anchoredPosition = new Vector2(24f, -20f);
         scoreRect.sizeDelta = new Vector2(560f, 130f);
         scoreLabel.color = Color.white;
+        // Scoreboard readability: white text on bright sky/grass was
+        // unreadable. Put a dark panel behind the score text only.
+        var scoreBgGo = new GameObject("ScoreboardBackground");
+        scoreBgGo.transform.SetParent(canvasGo.transform, false);
+        var scoreBg = scoreBgGo.AddComponent<UnityEngine.UI.Image>();
+        scoreBg.color = new Color(0f, 0f, 0f, 0.65f);
+        var scoreBgRect = scoreBgGo.GetComponent<RectTransform>();
+        scoreBgRect.anchorMin = new Vector2(0f, 1f);
+        scoreBgRect.anchorMax = new Vector2(0f, 1f);
+        scoreBgRect.pivot = new Vector2(0f, 1f);
+        scoreBgRect.anchoredPosition = new Vector2(12f, -8f);
+        scoreBgRect.sizeDelta = new Vector2(720f, 150f);
+        scoreLabel.transform.SetAsLastSibling();
         RefreshScoreboard();
     }
 
