@@ -16,7 +16,7 @@ public class CricketMatchManager : MonoBehaviour
 
     [Header("Boundary")]
     [Tooltip("Distance from pitch centre counted as the boundary, in metres")]
-    public float boundaryRadius = 55f;
+    public float boundaryRadius = 70f;  // Real stadium: ICC 59-82 m, typical 70 m (was 55 m, too small)
 
     [Header("Match Rules")]
     [Min(1)] public int oversPerInnings = 5;

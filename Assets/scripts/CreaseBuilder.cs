@@ -22,7 +22,10 @@ public static class CreaseBuilder
         GameObject root = new GameObject("RealCreases");
         root.AddComponent<CreaseMarker>();
         BuildEnd(root.transform, wicketPos, pitchDir, lateral);
-        BuildEnd(root.transform, bowlerPos, -pitchDir, lateral);
+        // REAL SIZE: bowler end is exactly 20.12 m from the stumps,
+        // not wherever the scene bowler happened to stand (~8.3 m).
+        Vector3 realBowlerEnd = wicketPos + pitchDir * RealCricketScale.PitchLength;
+        BuildEnd(root.transform, realBowlerEnd, -pitchDir, lateral);
     }
 
     static void BuildEnd(Transform root, Vector3 centre, Vector3 towardOtherEnd, Vector3 lateral)

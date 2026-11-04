@@ -373,6 +373,17 @@ public class VRLobbyManager : MonoBehaviour
     private void RestorePlayerRigToMatch()
     {
         if (playerRig == null) return;
+        // REAL SIZE: return to the real batsman spot (0.6 m in front
+        // of the stumps), not the old scene XR position, which was
+        // ~11 m off the bowling line. This is computed live, so it
+        // works no matter which script ran first at scene load.
+        if (!hasMatchRigPos && RealCricketScale.TryGetBatsmanRigPosition(out Vector3 realPos, out Quaternion realRot))
+        {
+            if (RigIsXROrigin()) realPos.y = playerRig.position.y;
+            playerRig.position = realPos;
+            playerRig.rotation = realRot;
+            return;
+        }
         if (hasMatchRigPos)
         {
             playerRig.position = rigMatchPos;

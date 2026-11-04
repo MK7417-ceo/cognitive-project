@@ -65,7 +65,16 @@ public class BallHitPhysics : MonoBehaviour
         // having a physics material (its MeshCollider material is empty,
         // which was flattening every bounce to ~0.3). Outfield bounce
         // now behaves like a real cricket ball off grass/pitch.
+        // REAL BALL SIZE: legal diameter 0.072 m. Prefab world
+        // diameter was 0.18 m (2.5x too big). Scale only if still
+        // oversize, so a hit-ball already at 0.072 m is not shrunk twice.
         ballCollider = GetComponent<Collider>();
+        if (ballCollider is SphereCollider sc)
+        {
+            float worldDiameter = sc.radius * transform.lossyScale.x * 2f;
+            if (worldDiameter > 0.1f)
+                transform.localScale = transform.localScale * (0.072f / worldDiameter);
+        }
         if (ballCollider != null)
         {
             var mat = new PhysicMaterial("BallGroundBounce");
@@ -83,8 +92,8 @@ public class BallHitPhysics : MonoBehaviour
         {
             var trail = gameObject.AddComponent<TrailRenderer>();
             trail.time = 0.5f;
-            trail.startWidth = 0.06f;
-            trail.endWidth = 0.01f;
+            trail.startWidth = 0.03f;
+            trail.endWidth = 0.005f;
             trail.material = new Material(Shader.Find("Sprites/Default")) { color = Color.red };
         }
     }
@@ -594,7 +603,7 @@ public class BallHitPhysics : MonoBehaviour
 
         adjudicatedWide = true;
         Vector3 lateralOffset = fromWicket - direction * Vector3.Dot(fromWicket, direction);
-        if (lateralOffset.magnitude < 1.25f) return;
+        if (lateralOffset.magnitude < 0.89f) return;  // Law 22 wide guideline: 0.89 m (35 in) from centre stump
 
         State = BallState.Dead;
         if (rb != null)
