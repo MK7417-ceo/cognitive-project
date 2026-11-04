@@ -321,6 +321,10 @@ public class CricketMatchManager : MonoBehaviour
     public void ResolveDelivery(BallHitPhysics ball, DeliveryResult result, int runs = 0, bool legal = true)
     {
         if (InningsComplete || MatchComplete || ball == null || !resolvedBalls.Add(ball.GetEntityId())) return;
+        // Report functions: every delivery is recorded once, with its
+        // real outcome, for the analytics dashboard + adaptive difficulty.
+        if (MatchAnalytics.Instance != null)
+            MatchAnalytics.Instance.RecordOutcome(result, runs);
 
         // A run only counts after both batters reach the opposite crease.
         // Stop any run still in progress before adjudicating the delivery.

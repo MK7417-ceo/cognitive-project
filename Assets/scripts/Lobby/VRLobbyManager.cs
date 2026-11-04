@@ -673,9 +673,9 @@ public class VRLobbyManager : MonoBehaviour
         // of the stands, not a shed on the grass. Stepped seating rows
         // extend sideways behind the building, in stadium seat colours,
         // so the building reads as part of the bowl, not a standalone box.
-        MakeBox("StandsStep1", new Vector3(0f, 0.35f, -2.5f), new Vector3(22f, 0.6f, 1.5f), new Color(0.75f, 0.15f, 0.15f));
-        MakeBox("StandsStep2", new Vector3(0f, 0.85f, -4.0f), new Vector3(22f, 0.6f, 1.5f), new Color(0.25f, 0.35f, 0.75f));
-        MakeBox("StandsStep3", new Vector3(0f, 1.35f, -5.5f), new Vector3(22f, 0.6f, 1.5f), new Color(0.75f, 0.75f, 0.25f));
+        // REAL SEATS (replaces the old giant step blocks): individual
+        // seats, not 22 m slabs. See BuildRealSeats for every dimension.
+        BuildRealSeats();
         // WALKWAY + BOUNDARY GATE: players walk out through the door,
         // down this strip to the rope (floor front edge is at 57.5 m,
         // rope at 55 m, so the strip is 2.5 m long), then across the
@@ -701,6 +701,52 @@ public class VRLobbyManager : MonoBehaviour
         MakeEmissiveBox("CeilingLightRight", new Vector3(2f, 3.18f, 1.5f), new Vector3(1.0f, 0.06f, 0.3f));
         MakePointLight("PavilionLightLeft", new Vector3(-2f, 2.8f, 1.5f));
         MakePointLight("PavilionLightRight", new Vector3(2f, 2.8f, 1.5f));
+    }
+
+    // REAL SEATS - minute detail, all dimensions real:
+    // - Seat width 0.50 m, seat depth 0.45 m, seat height 0.45 m
+    //   (a real stadium seat is ~0.50 m wide, ~0.45 m high).
+    // - Backrest 0.45 m tall, 0.08 m thick, behind the seat.
+    // - Row rise 0.40 m, row depth 1.00 m (a real stand step).
+    //   Row 0 seat top 0.45 m, row 1 0.85 m, row 2 1.25 m - all below
+    //   the VR eye height 1.65 m, so no seat ever blocks the view.
+    // - 44 seat slots per row across 22 m, with a 1.00 m aisle
+    //   (2 slots) every 11 seats, so a VR player can walk between
+    //   rows without squeezing through seats - no size difficulty
+    //   for a player entering the stands in VR.
+    // - One thin row platform (0.08 m) under each row, not a 0.60 m
+    //   solid block. Colours keep the old row colours (red/blue/yellow).
+    // - Seats live only in the pavilion, which is hidden on Start,
+    //   so they cost nothing during a match. Count: 36 seats/row x
+    //   3 rows = 108 seats, 4 boxes each = 432 boxes, only in lobby.
+    private void BuildRealSeats()
+    {
+        Color[] rowColors = { new Color(0.75f, 0.15f, 0.15f), new Color(0.25f, 0.35f, 0.75f), new Color(0.75f, 0.75f, 0.25f) };
+        for (int row = 0; row < 3; row++)
+        {
+            float rowZ = -2.5f - row * 1.0f;
+            float seatY = 0.45f + row * 0.40f;
+            // Row platform: 22 m wide, 1.00 m deep, 0.08 m thick.
+            MakeBox($"SeatRowPlatform{row}", new Vector3(0f, seatY - 0.45f + 0.04f, rowZ), new Vector3(22f, 0.08f, 1.0f), new Color(0.35f, 0.35f, 0.35f));
+            for (int slot = 0; slot < 44; slot++)
+            {
+                // Aisle: 2 slots (1.00 m) every 11 slots are a walkway, not seats.
+                if (slot % 11 >= 9) continue;
+                float x = -10.75f + slot * 0.5f;
+                MakeSeat($"Seat_R{row}_S{slot}", x, seatY, rowZ, rowColors[row]);
+            }
+        }
+    }
+
+    private void MakeSeat(string name, float x, float seatY, float z, Color color)
+    {
+        // Seat base: 0.46 m wide (0.04 m gap to the next seat), 0.08 m thick, 0.45 m deep.
+        MakeBox(name + "_Base", new Vector3(x, seatY, z), new Vector3(0.46f, 0.08f, 0.45f), color);
+        // Backrest: 0.46 m wide, 0.45 m tall, 0.08 m thick, behind the base.
+        MakeBox(name + "_Back", new Vector3(x, seatY + 0.25f, z - 0.20f), new Vector3(0.46f, 0.45f, 0.08f), color);
+        // Legs: two small legs, so the seat is not a solid block to the floor.
+        MakeBox(name + "_LegL", new Vector3(x - 0.18f, seatY - 0.20f, z), new Vector3(0.06f, 0.40f, 0.06f), new Color(0.20f, 0.20f, 0.20f));
+        MakeBox(name + "_LegR", new Vector3(x + 0.18f, seatY - 0.20f, z), new Vector3(0.06f, 0.40f, 0.06f), new Color(0.20f, 0.20f, 0.20f));
     }
 
     private void MakeLocker(string name, float x, Color bodyColor)
