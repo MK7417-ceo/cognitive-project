@@ -36,9 +36,12 @@ public class StumpsPhysics : MonoBehaviour
         // makes that same location the wicket used by the ball and keeper logic.
         var zone = new GameObject("WicketZone");
         zone.transform.SetParent(transform, false);
-        zone.transform.localPosition = new Vector3(0f, 0.6f, 0f);
+        // Law 8 (real world): 3 stumps, 71.12 cm high, 22.86 cm overall width.
+        // Old trigger was 0.8 x 1.2 x 0.6 m - about 3.5x too wide and almost
+        // waist-high, which is why the wicket looked as tall as a player.
+        zone.transform.localPosition = new Vector3(0f, 0.3556f, 0f);
         var trigger = zone.AddComponent<BoxCollider>();
-        trigger.size = new Vector3(0.8f, 1.2f, 0.6f);
+        trigger.size = new Vector3(0.2286f, 0.7112f, 0.1f);
         trigger.isTrigger = true;
         zone.AddComponent<WicketZone>();
     }

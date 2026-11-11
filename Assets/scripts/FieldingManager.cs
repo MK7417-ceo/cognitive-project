@@ -33,12 +33,12 @@ public class FieldingManager : MonoBehaviour
             wicketPosition + pitchDirection * 3.2f + offSide * 2.7f,  // first slip
             wicketPosition + pitchDirection * 4.1f + offSide * 4.8f,  // second slip
             wicketPosition + pitchDirection * 2.2f + offSide * 7.0f,  // gully
-            pitchMiddle + pitchDirection * 1.5f + offSide * 13.5f,    // cover
-            pitchMiddle + offSide * 16f,                              // point
-            pitchMiddle - pitchDirection * 5f - offSide * 12f,        // mid-off
-            pitchMiddle - pitchDirection * 5f + offSide * 12f,        // mid-on
-            wicketPosition - pitchDirection * 8f + offSide * 9f,      // square leg
-            wicketPosition - pitchDirection * 13f + offSide * 5f      // fine leg
+            pitchMiddle + pitchDirection * 1.5f + offSide * 25f,     // cover (real outfield)
+            pitchMiddle + offSide * 28f,                              // point
+            pitchMiddle - pitchDirection * 5f - offSide * 25f,        // mid-off
+            pitchMiddle - pitchDirection * 5f + offSide * 25f,        // mid-on
+            wicketPosition - pitchDirection * 8f + offSide * 20f,     // square leg
+            wicketPosition - pitchDirection * 13f + offSide * 25f     // fine leg
         };
 
         string[] names =

@@ -46,6 +46,11 @@ public static class HumanCricketActor
             if (animator == null) continue;
             animator.applyRootMotion = false;
             animator.enabled = true;
+            // Fielders are NOT bowlers. The template bowler may have been
+            // cloned just after a Bowl trigger, which made every fielder
+            // loop the bowling action while chasing. Force idle and clear it.
+            animator.ResetTrigger("Bowl");
+            animator.Play("StandIdle", 0, 0f);
         }
 
         // OverManager may have deactivated the source bowler while selecting

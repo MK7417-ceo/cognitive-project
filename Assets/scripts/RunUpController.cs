@@ -24,6 +24,9 @@ public class RunUpController : MonoBehaviour
         // Remember the run-up start (position + facing).
         startPosition = transform.position;
         startRotation = transform.rotation;
+        // Real run-up, not a walk: scene Inspector values are 1.9-2.5 m/s,
+        // which looks like walking. A real bowler runs in at ~5 m/s+.
+        if (runSpeed < 5f) runSpeed = 5f;
     }
 
     void Update()

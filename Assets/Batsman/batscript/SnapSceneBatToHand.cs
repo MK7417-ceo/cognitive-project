@@ -23,7 +23,7 @@ public class SnapSceneBatToHand : MonoBehaviour
 
     [Header("Realistic Dimensions")]
     [Tooltip("Standard adult cricket bat length in meters (typically 0.85m / 33.5 inches)")]
-    public float realBatLength = 0.85f;
+    public float realBatLength = 0.965f;  // Law 5: max bat length 38 in = 0.965 m
 
     [Header("Real Bat Physics (Phase 1)")]
     [Tooltip("Give the bat a solid (non-trigger) collider from its mesh bounds, so the ball bounces off the blade with real physics instead of passing through or relying on a trigger.")]

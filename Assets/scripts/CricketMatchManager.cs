@@ -16,7 +16,7 @@ public class CricketMatchManager : MonoBehaviour
 
     [Header("Boundary")]
     [Tooltip("Distance from pitch centre counted as the boundary, in metres")]
-    public float boundaryRadius = 55f;
+    public float boundaryRadius = 70f;  // Real stadium: ICC 59-82 m, typical 70 m (was 55 m, too small)
 
     [Header("Match Rules")]
     [Min(1)] public int oversPerInnings = 5;
@@ -275,7 +275,7 @@ public class CricketMatchManager : MonoBehaviour
         canvasGo.AddComponent<CanvasScaler>();
         canvasGo.AddComponent<GraphicRaycaster>();
 
-        bigMessage = MakeText(canvasGo.transform, 64, 120f);
+        bigMessage = MakeText(canvasGo.transform, 36, 120f);
         RectTransform messageRect = bigMessage.rectTransform;
         messageRect.anchorMin = new Vector2(0.04f, 0.5f);
         messageRect.anchorMax = new Vector2(0.96f, 0.5f);
@@ -284,7 +284,7 @@ public class CricketMatchManager : MonoBehaviour
         messageRect.sizeDelta = new Vector2(0f, 180f);
         bigMessage.resizeTextForBestFit = true;
         bigMessage.resizeTextMinSize = 24;
-        bigMessage.resizeTextMaxSize = 64;
+        bigMessage.resizeTextMaxSize = 36;
         bigMessage.horizontalOverflow = HorizontalWrapMode.Wrap;
         bigMessage.enabled = false;
 
@@ -301,6 +301,19 @@ public class CricketMatchManager : MonoBehaviour
         scoreRect.anchoredPosition = new Vector2(24f, -20f);
         scoreRect.sizeDelta = new Vector2(560f, 130f);
         scoreLabel.color = Color.white;
+        // Scoreboard readability: white text on bright sky/grass was
+        // unreadable. Put a dark panel behind the score text only.
+        var scoreBgGo = new GameObject("ScoreboardBackground");
+        scoreBgGo.transform.SetParent(canvasGo.transform, false);
+        var scoreBg = scoreBgGo.AddComponent<UnityEngine.UI.Image>();
+        scoreBg.color = new Color(0f, 0f, 0f, 0.65f);
+        var scoreBgRect = scoreBgGo.GetComponent<RectTransform>();
+        scoreBgRect.anchorMin = new Vector2(0f, 1f);
+        scoreBgRect.anchorMax = new Vector2(0f, 1f);
+        scoreBgRect.pivot = new Vector2(0f, 1f);
+        scoreBgRect.anchoredPosition = new Vector2(12f, -8f);
+        scoreBgRect.sizeDelta = new Vector2(720f, 150f);
+        scoreLabel.transform.SetAsLastSibling();
         RefreshScoreboard();
     }
 
@@ -308,6 +321,10 @@ public class CricketMatchManager : MonoBehaviour
     public void ResolveDelivery(BallHitPhysics ball, DeliveryResult result, int runs = 0, bool legal = true)
     {
         if (InningsComplete || MatchComplete || ball == null || !resolvedBalls.Add(ball.GetEntityId())) return;
+        // Report functions: every delivery is recorded once, with its
+        // real outcome, for the analytics dashboard + adaptive difficulty.
+        if (MatchAnalytics.Instance != null)
+            MatchAnalytics.Instance.RecordOutcome(result, runs);
 
         // A run only counts after both batters reach the opposite crease.
         // Stop any run still in progress before adjudicating the delivery.

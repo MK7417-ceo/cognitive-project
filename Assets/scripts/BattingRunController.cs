@@ -14,6 +14,9 @@ public sealed class BattingRunController : MonoBehaviour
     Coroutine activeRun;
 
     public bool IsRunning => activeRun != null;
+    // Single-player training: only the VR batsman ever bats.
+    // The non-striker is a visual clone only, never a player.
+    public bool keepStrikerFixed = true;
 
     public static BattingRunController Build(PlayerMovement striker, Vector3 nonStrikerCrease)
     {
@@ -60,6 +63,10 @@ public sealed class BattingRunController : MonoBehaviour
     /// <summary>Transfer batting input to the batter now standing at striker's end.</summary>
     public void SwapStrike()
     {
+        // Do NOT hand batting control to the non-striker clone:
+        // its input/physics are disabled, so swapping would break
+        // the VR player. Strike stays with the VR player always.
+        if (keepStrikerFixed) return;
         if (striker == null || nonStriker == null) return;
 
         Transform previousStriker = striker;

@@ -19,6 +19,13 @@ public class BallHitPhysics : MonoBehaviour
     public BallState State { get; private set; } = BallState.Flying;
     public bool CanCallRun => State == BallState.Hit && !boundaryResolved && !outcomeRecorded;
 
+    /// <summary>
+    /// Law 33 (Caught): a catch is only a dismissal when the ball was hit
+    /// by the VR player's bat and has NOT bounced since that hit. Capture
+    /// this BEFORE MarkCaught(), because MarkCaught() sets State to Dead.
+    /// </summary>
+    public bool WouldBeCaughtOut => State == BallState.Hit && bounces == 0;
+
     /// <summary>True once this hit ball has crossed the boundary.</summary>
     public bool IsBoundaryResolved { get { return boundaryResolved; } }
 
@@ -41,9 +48,54 @@ public class BallHitPhysics : MonoBehaviour
 
     public BowlingManager DeliveringBowler { get; set; }
 
+    Vector3 lastVelocity;
+    Collider ballCollider;
+
+    void FixedUpdate()
+    {
+        if (rb != null && !rb.isKinematic)
+            lastVelocity = rb.linearVelocity;
+    }
+
     void Awake()
     {
         rb = GetComponent<Rigidbody>();
+        // Real ground bounce: ball material 0.75 bounciness, Maximum
+        // combine, so the bounce does NOT depend on the stadium mesh
+        // having a physics material (its MeshCollider material is empty,
+        // which was flattening every bounce to ~0.3). Outfield bounce
+        // now behaves like a real cricket ball off grass/pitch.
+        // REAL BALL SIZE: legal diameter 0.072 m. Prefab world
+        // diameter was 0.18 m (2.5x too big). Scale only if still
+        // oversize, so a hit-ball already at 0.072 m is not shrunk twice.
+        ballCollider = GetComponent<Collider>();
+        if (ballCollider is SphereCollider sc)
+        {
+            float worldDiameter = sc.radius * transform.lossyScale.x * 2f;
+            if (worldDiameter > 0.1f)
+                transform.localScale = transform.localScale * (0.072f / worldDiameter);
+        }
+        if (ballCollider != null)
+        {
+            var mat = new PhysicMaterial("BallGroundBounce");
+            mat.bounciness = 0.75f;
+            mat.dynamicFriction = 0.4f;
+            mat.staticFriction = 0.4f;
+            mat.bounceCombine = PhysicMaterialCombine.Maximum;
+            mat.frictionCombine = PhysicMaterialCombine.Average;
+            ballCollider.material = mat;
+        }
+        // Ball was a tiny white dot and vanished against sky/grass.
+        // A short red trail makes every delivery readable in flight
+        // without changing ball mass, size or physics.
+        if (GetComponent<TrailRenderer>() == null)
+        {
+            var trail = gameObject.AddComponent<TrailRenderer>();
+            trail.time = 0.5f;
+            trail.startWidth = 0.03f;
+            trail.endWidth = 0.005f;
+            trail.material = new Material(Shader.Find("Sprites/Default")) { color = Color.red };
+        }
     }
 
     void OnDestroy()
@@ -96,6 +148,35 @@ public class BallHitPhysics : MonoBehaviour
                 HandleBatContact(batTracker, cp.point, cp.normal);
                 if (State != BallState.Flying) return; // hit or blocked, done
                 // If the bat was still, fall through: ball passes (leave/miss).
+            }
+        }
+
+        // WALL FIX (user-reported): a delivery was hitting something
+        // in mid-pitch (a humanoid, a panel, a sightscreen, a stands
+        // mesh wall) and bouncing back before it ever reached the
+        // batsman. A delivery must ONLY be stopped by: bat, stumps,
+        // or the ground. Any other solid hit while Flying is NOT a
+        // wall - restore the pre-collision velocity and ignore that
+        // collider for this ball, so the ball reaches the batsman.
+        // This does NOT affect Hit balls: fielding/catching after a
+        // shot still works normally.
+        if (State == BallState.Flying && collision.contactCount > 0)
+        {
+            // Stumps are NOT a wall: a solid stump hit below is
+            // bowled, so never ignore it here.
+            var solidStumps = collision.gameObject.GetComponentInParent<StumpsPhysics>();
+            bool isGround = false;
+            foreach (var cp in collision.contacts)
+                if (cp.normal.y > 0.5f) { isGround = true; break; }
+            if (!isGround && solidStumps == null)
+            {
+                var otherCol = collision.collider;
+                if (otherCol != null && ballCollider != null)
+                    Physics.IgnoreCollision(ballCollider, otherCol, true);
+                if (rb != null && lastVelocity.sqrMagnitude > 0.01f)
+                    rb.linearVelocity = lastVelocity;
+                Debug.Log($"BallHitPhysics: ignored non-pitch obstacle '{collision.gameObject.name}' mid-flight, ball continues to batsman.");
+                return;
             }
         }
 
@@ -522,7 +603,7 @@ public class BallHitPhysics : MonoBehaviour
 
         adjudicatedWide = true;
         Vector3 lateralOffset = fromWicket - direction * Vector3.Dot(fromWicket, direction);
-        if (lateralOffset.magnitude < 1.25f) return;
+        if (lateralOffset.magnitude < 0.89f) return;  // Law 22 wide guideline: 0.89 m (35 in) from centre stump
 
         State = BallState.Dead;
         if (rb != null)

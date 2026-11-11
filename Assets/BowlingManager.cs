@@ -154,6 +154,28 @@ public class BowlingManager : MonoBehaviour
     {
         if (variations.Count == 0) return null;
 
+        // Adaptive bias: at high difficulty, prefer deceptive variations
+        // (googly/bouncer/yorker) half the time; at low difficulty,
+        // prefer straight variations. Falls back to random if none match.
+        if ((AdaptiveDifficulty.Level >= 4 || AdaptiveDifficulty.Level <= 2) && Random.value < 0.5f)
+        {
+            bool wantDeceptive = AdaptiveDifficulty.Level >= 4;
+            var matches = new System.Collections.Generic.List<BallVariation>();
+            foreach (var v in variations)
+            {
+                if (v == null) continue;
+                string n = (v.name ?? "").ToLowerInvariant();
+                bool deceptive = n.Contains("googly") || n.Contains("bouncer") || n.Contains("yorker") || n.Contains("doosra");
+                if (deceptive == wantDeceptive) matches.Add(v);
+            }
+            if (matches.Count > 0)
+            {
+                var picked = matches[Random.Range(0, matches.Count)];
+                lastIndex = variations.IndexOf(picked);
+                return picked;
+            }
+        }
+
         int idx = Random.Range(0, variations.Count);
         if (idx == lastIndex && variations.Count > 1)
             idx = (idx + 1) % variations.Count;
@@ -234,11 +256,14 @@ public class BowlingManager : MonoBehaviour
             return;
         }
 
+        // Adaptive pace + swing: difficulty level scales the delivery
+        // actually bowled, not just the label. Level 1 is slower/easier,
+        // level 5 is faster with more swing/spin (see AdaptiveDifficulty).
         ballThrower.Launch(
             activeSpawn.position,
             v.targetPoint.position,
-            v.timeToTarget,
-            finalSwing,
+            v.timeToTarget * AdaptiveDifficulty.TimeScale,
+            finalSwing * AdaptiveDifficulty.SwingScale,
             v.spinTorque
         );
 
