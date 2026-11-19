@@ -25,6 +25,34 @@ layout with code primitives only: glass wall, stadium backdrop,
 floodlights, detailed lockers, sofa, team-talk board, wooden floor
 and ceiling lights. No external models were added.
 
+
+## Fix note (Oct 30, after Play screenshot — pavilion was ON the pitch)
+
+The first merged version anchored the pavilion to the player's start
+position, and the player starts at the batsman — so the dressing room,
+its floor and its ceiling landed on top of the pitch, over the stumps,
+and its fake field/pitch strip painted a second ground over the real
+one. That was the mess in the screenshot.
+
+Fix (branch `fix/pavilion-off-pitch`, unmerged):
+- Pavilion now sits `pavilionSideDistance` (default 30 m) to the SIDE of
+  the pitch centre, perpendicular to the pitch direction, facing back
+  toward the pitch — where a real ground's pavilion sits, at the
+  boundary edge. Tune the distance in the Inspector if it lands inside
+  the stands in your scene scale; `pavilionOnRightSide` flips the side.
+- Player rig is teleported into the pavilion while the lobby is open,
+  and teleported back to the saved batsman position on Walk Out (and
+  on Resume from Esc-pause). Esc from a match therefore also walks you
+  back into the pavilion, it does not just show a panel 30 m away.
+- Fake StadiumField / StadiumPitch / floodlights are deleted. The
+  glass wall now looks onto the real SampleScene ground.
+- Ground is y = 0 (the old code used the XR Origin height as ground,
+  which floated the floor). XR Origin lookup now matches the scene
+  name "XR Origin (VR)".
+- Still NOT Unity-compiled/Play-tested by the agent. Test with the
+  default camera first: camera switching (keys 1-9) during a match
+  changes Camera.main, so Esc teleport may not move a switched camera.
+
 ## How to test (Unity 6000.6.6f1, pull the PR branch, open SampleScene, Play)
 
 1. **Auth first, no match yet.** The Auth panel must appear and the bowler

@@ -57,9 +57,21 @@ public sealed class BattingRunController : MonoBehaviour
         return controller;
     }
 
-    /// <summary>Transfer batting input to the batter now standing at striker's end.</summary>
+    /// <summary>
+    /// Single-player training rule (user directive, Oct 30): strike ALWAYS
+    /// stays with the single VR player. SwapStrike() is therefore a no-op
+    /// while keepStrikerFixed is true (the default). Without this guard,
+    /// the over-end call in CricketMatchManager and the odd-run call would
+    /// hand batting input to the non-striker visual clone -- a GameObject
+    /// whose behaviours/colliders are deliberately disabled -- and the VR
+    /// player would stop being the batsman. Set this to false only if a
+    /// real two-batsman mode is ever added.
+    /// </summary>
+    public bool keepStrikerFixed = true;
+
     public void SwapStrike()
     {
+        if (keepStrikerFixed) return;
         if (striker == null || nonStriker == null) return;
 
         Transform previousStriker = striker;
